@@ -8,7 +8,7 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     * { margin:0; padding:0; box-sizing:border-box; }
-    body { font-family: sans-serif; display:flex; height:100vh; background:#0d0d1a; }
+    body { font-family:sans-serif; display:flex; height:100vh; background:#0d0d1a; }
 
     #sidebar {
       width:420px; min-width:420px; padding:18px;
@@ -19,40 +19,35 @@
 
     h2 { color:#f8fafc; font-size:17px; letter-spacing:.5px; }
 
-    .section {
-      background:#16213e; border-radius:8px; padding:14px;
-    }
+    .section { background:#16213e; border-radius:8px; padding:14px; }
     .section-title {
       font-size:10px; text-transform:uppercase;
       letter-spacing:1.5px; color:#64748b; margin-bottom:10px;
     }
 
-    /* Dataset tabs */
     .tab-group { display:flex; gap:6px; flex-wrap:wrap; }
     .tab {
       padding:6px 12px; border-radius:20px;
       border:1px solid #334155; background:transparent;
       color:#94a3b8; font-size:12px; cursor:pointer; transition:.2s;
     }
-    .tab.active-wave  { background:#8b5cf6; border-color:#8b5cf6; color:white; }
+    .tab.active-wave   { background:#8b5cf6; border-color:#8b5cf6; color:white; }
     .tab.active-precip { background:#0ea5e9; border-color:#0ea5e9; color:white; }
-    .tab.active-frag  { background:#ef4444; border-color:#ef4444; color:white; }
-    .tab.disabled { opacity:0.4; cursor:not-allowed; }
+    .tab.active-frag   { background:#ef4444; border-color:#ef4444; color:white; }
+    .tab.disabled      { opacity:.4; cursor:not-allowed; }
 
     #point-info { font-size:13px; color:#94a3b8; line-height:1.8; }
     #point-info span { color:#e94560; font-weight:bold; }
 
-    label {
-      display:block; font-size:11px;
-      color:#94a3b8; margin-bottom:3px; margin-top:8px;
+    .hint {
+      font-size:11px; color:#0ea5e9;
+      padding:6px 8px; background:#0c2340;
+      border-radius:4px; margin-top:4px;
     }
 
-    .check-row {
-      display:flex; align-items:center;
-      gap:8px; font-size:12px; color:#94a3b8;
-    }
+    label { display:block; font-size:11px; color:#94a3b8; margin-bottom:3px; margin-top:8px; }
+    .check-row { display:flex; align-items:center; gap:8px; font-size:12px; color:#94a3b8; }
     .check-row input { width:15px; height:15px; cursor:pointer; }
-
     input[type=number] {
       width:100%; padding:7px 10px;
       background:#0f172a; color:white;
@@ -61,6 +56,16 @@
     input[type=number]:focus { border-color:#e94560; outline:none; }
     .row { display:flex; gap:8px; }
     .row > * { flex:1; }
+
+    /* Legend */
+    .legend-bar {
+      height:12px; border-radius:4px; margin-top:6px;
+      background: linear-gradient(to right, #eff6ff, #3b82f6, #1e3a5f);
+    }
+    .legend-labels {
+      display:flex; justify-content:space-between;
+      font-size:10px; color:#94a3b8; margin-top:2px;
+    }
 
     #query-btn {
       padding:10px; background:#e94560; color:white;
@@ -101,12 +106,10 @@
               onclick="setDataset('wave_surge', this)">
         🌊 Wave Surge
       </button>
-      <button class="tab disabled"
-              onclick="notAvailable(this)">
+      <button class="tab disabled" onclick="notAvailable()">
         🌧 Precipitation
       </button>
-      <button class="tab disabled"
-              onclick="notAvailable(this)">
+      <button class="tab disabled" onclick="notAvailable()">
         ⚠️ Fragility
       </button>
     </div>
@@ -115,7 +118,19 @@
   <!-- 選點資訊 -->
   <div class="section">
     <div class="section-title">Selected Location</div>
-    <div id="point-info">點擊地圖選取位置</div>
+    <div id="point-info">點擊藍色區域選取位置</div>
+    <div class="hint">💡 藍色區域為有效資料範圍</div>
+  </div>
+
+  <!-- 圖例 -->
+  <div class="section">
+    <div class="section-title">Flood100 Value (m)</div>
+    <div class="legend-bar"></div>
+    <div class="legend-labels">
+      <span>0 m</span>
+      <span>2 m</span>
+      <span>4+ m</span>
+    </div>
   </div>
 
   <!-- Y 軸範圍 -->
@@ -145,21 +160,21 @@
 <script>
 const API = "https://nas-clim-api.onrender.com";
 
-// ── 狀態 ─────────────────────────────────────────────────────
 let selectedDataset = "wave_surge";
 let selectedLat     = null;
 let selectedLon     = null;
 let marker          = null;
 let charts          = [];
+let gridLayer       = null;
 
-// ── 地圖初始化 ────────────────────────────────────────────────
+// ── 地圖 ──────────────────────────────────────────────────────
 const map = L.map("map").fitBounds([
-  [29.3, -95.5],   // 左下角
-  [30.1, -94.5]    // 右上角
+  [29.3, -95.5],
+  [30.1, -94.5]
 ]);
 
 L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-  attribution: "© OpenStreetMap"
+  attribution:"© OpenStreetMap"
 }).addTo(map);
 
 // 點擊地圖
@@ -175,6 +190,72 @@ map.on("click", e => {
   marker = L.marker([selectedLat, selectedLon]).addTo(map);
 });
 
+// ── 顏色對應（flood100 值 → 顏色）───────────────────────────
+function valueToColor(val, maxVal) {
+  if (val === null) return null;
+  const t = Math.min(val / maxVal, 1);
+  // 白 → 藍 → 深藍
+  const r = Math.round(239 - t * (239 - 30));
+  const g = Math.round(246 - t * (246 - 58));
+  const b = Math.round(255 - t * (255 - 95));
+  return `rgba(${r},${g},${b},0.65)`;
+}
+
+// ── 載入並繪製格點覆蓋層 ─────────────────────────────────────
+async function loadGrid(datasetId) {
+  document.getElementById("status").textContent = "載入資料範圍...";
+
+  try {
+    const res  = await fetch(`${API}/query/${datasetId}/grid?variable=flood100&downsample=15`);
+    const data = await res.json();
+
+    // 清除舊的格點層
+    if (gridLayer) {
+      gridLayer.clearLayers();
+    } else {
+      gridLayer = L.layerGroup().addTo(map);
+    }
+
+    const lons    = data.lons;
+    const lats    = data.lats;
+    const values  = data.values;
+    const maxVal  = 4.0;
+
+    // 計算每個格點的大小
+    const dLon = lons.length > 1 ? Math.abs(lons[1] - lons[0]) : 0.03;
+    const dLat = lats.length > 1 ? Math.abs(lats[1] - lats[0]) : 0.03;
+
+    for (let i = 0; i < lons.length; i++) {
+      for (let j = 0; j < lats.length; j++) {
+        const val   = values[i][j];
+        const color = valueToColor(val, maxVal);
+
+        if (color === null) continue;  // 跳過無資料的格點
+
+        const bounds = [
+          [lats[j] - dLat/2, lons[i] - dLon/2],
+          [lats[j] + dLat/2, lons[i] + dLon/2],
+        ];
+
+        L.rectangle(bounds, {
+          color:       "transparent",
+          fillColor:   color,
+          fillOpacity: 0.65,
+          weight:      0,
+        }).addTo(gridLayer);
+      }
+    }
+
+    document.getElementById("status").textContent = "✓ 點擊藍色區域查詢";
+
+  } catch(e) {
+    document.getElementById("status").textContent = `✗ 無法載入格點：${e.message}`;
+  }
+}
+
+// 啟動時載入格點
+loadGrid("wave_surge");
+
 // ── Dataset 切換 ──────────────────────────────────────────────
 function setDataset(name, btn) {
   selectedDataset = name;
@@ -182,17 +263,17 @@ function setDataset(name, btn) {
     t.className = "tab";
   });
   const classMap = {
-    wave_surge:    "active-wave",
+    wave_surge: "active-wave",
     precipitation: "active-precip",
-    fragility:     "active-frag",
+    fragility: "active-frag",
   };
   btn.className = `tab ${classMap[name]}`;
   clearCharts();
+  loadGrid(name);
 }
 
-function notAvailable(btn) {
-  document.getElementById("status").textContent =
-    "⚠ 此資料集尚未開放";
+function notAvailable() {
+  document.getElementById("status").textContent = "⚠ 此資料集尚未開放";
 }
 
 // ── Y 軸 ──────────────────────────────────────────────────────
@@ -230,11 +311,9 @@ async function runQuery() {
   clearCharts();
 
   try {
-    const url = `${API}/query/${selectedDataset}/point` +
-                `?lat=${selectedLat}&lon=${selectedLon}`;
+    const url  = `${API}/query/${selectedDataset}/point?lat=${selectedLat}&lon=${selectedLon}`;
     const res  = await fetch(url);
     const data = await res.json();
-
     drawBarCharts(data);
     status.textContent = "✓ 完成";
   } catch(e) {
@@ -249,7 +328,6 @@ function drawBarCharts(data) {
   const area   = document.getElementById("charts-area");
   const values = data.values;
 
-  // 分兩組
   const groups = [
     {
       title:  "Flood Return Levels (m)",
@@ -263,23 +341,18 @@ function drawBarCharts(data) {
     },
   ];
 
-  // 計算 Y 軸範圍（只用有值的資料）
   const allVals = Object.values(values).filter(v => v !== null);
   const yRange  = allVals.length > 0
     ? getYRange(0, Math.max(...allVals) * 1.2)
     : { min: 0, max: 10 };
 
   groups.forEach(g => {
-    const labels = g.keys;
-    const vals   = g.keys.map(k => values[k]);
-    const colors = g.keys.map((k, i) => values[k] === null
-      ? "#334155"           // 灰色 = 無資料
-      : g.colors[i % g.colors.length]
+    const vals        = g.keys.map(k => values[k]);
+    const colors      = g.keys.map((k, i) =>
+      values[k] === null ? "#334155" : g.colors[i % g.colors.length]
     );
     const displayVals = vals.map(v => v === null ? 0 : v);
-
-    // 有幾個 null
-    const nullCount = vals.filter(v => v === null).length;
+    const nullCount   = vals.filter(v => v === null).length;
 
     const box = document.createElement("div");
     box.className = "chart-box";
@@ -288,17 +361,15 @@ function drawBarCharts(data) {
       <small>lat: ${data.lat}, lon: ${data.lon}</small></h4>
       <canvas></canvas>
       ${nullCount > 0
-        ? `<div class="null-warning">
-             ⚠ ${nullCount} 個變數在此位置無資料（灰色）
-           </div>`
+        ? `<div class="null-warning">⚠ ${nullCount} 個變數在此位置無資料</div>`
         : ""}
     `;
     area.appendChild(box);
 
-    const chart = new Chart(box.querySelector("canvas"), {
+    charts.push(new Chart(box.querySelector("canvas"), {
       type: "bar",
       data: {
-        labels,
+        labels: g.keys,
         datasets: [{
           data:            displayVals,
           backgroundColor: colors,
@@ -313,9 +384,7 @@ function drawBarCharts(data) {
             callbacks: {
               label: ctx => {
                 const orig = vals[ctx.dataIndex];
-                return orig === null
-                  ? "No data"
-                  : `${orig.toFixed(4)} m`;
+                return orig === null ? "No data" : `${orig.toFixed(4)} m`;
               }
             }
           }
@@ -324,12 +393,11 @@ function drawBarCharts(data) {
           y: {
             min:   yRange.min,
             max:   yRange.max,
-            title: { display: true, text: "meters" }
+            title: { display:true, text:"meters" }
           }
         }
       }
-    });
-    charts.push(chart);
+    }));
   });
 }
 </script>
