@@ -150,7 +150,6 @@
     </div>
   </div>
 
-  <button id="query-btn" disabled onclick="runQuery()">查詢</button>
   <div id="status"></div>
   <div id="charts-area"></div>
 </div>
@@ -184,10 +183,12 @@ map.on("click", e => {
 
   document.getElementById("point-info").innerHTML =
     `lat: <span>${selectedLat}</span><br>lon: <span>${selectedLon}</span>`;
-  document.getElementById("query-btn").disabled = false;
 
   if (marker) marker.remove();
   marker = L.marker([selectedLat, selectedLon]).addTo(map);
+
+  // 直接查詢，不需要按鈕
+  runQuery();
 });
 
 // ── 顏色對應（flood100 值 → 顏色）───────────────────────────
@@ -305,9 +306,7 @@ async function runQuery() {
   if (selectedLat === null) return;
 
   const status = document.getElementById("status");
-  const btn    = document.getElementById("query-btn");
-  btn.disabled = true;
-  status.textContent = "查詢中...";
+  status.textContent = "Searching...";
   clearCharts();
 
   try {
@@ -315,11 +314,9 @@ async function runQuery() {
     const res  = await fetch(url);
     const data = await res.json();
     drawBarCharts(data);
-    status.textContent = "✓ 完成";
+    status.textContent = "✓ ok";
   } catch(e) {
     status.textContent = `✗ ${e.message}`;
-  } finally {
-    btn.disabled = false;
   }
 }
 
