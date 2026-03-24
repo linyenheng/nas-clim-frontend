@@ -246,10 +246,10 @@ async function loadGrid(datasetId) {
       }
     }
 
-    document.getElementById("status").textContent = "✓ 點擊藍色區域查詢";
+    document.getElementById("status").textContent = "✓ click gray regions";
 
   } catch(e) {
-    document.getElementById("status").textContent = `✗ 無法載入格點：${e.message}`;
+    document.getElementById("status").textContent = `✗ error load grids ：${e.message}`;
   }
 }
 
