@@ -43,13 +43,20 @@
       font-size:11px; color:#94a3b8;
       padding:8px 10px; background:#0f172a;
       border-radius:4px; margin-top:8px;
-      line-height: 1.6;
+      line-height:1.6;
     }
     .hint b { color:#e2e8f0; }
 
-    .check-row { display:flex; align-items:center; gap:8px; font-size:12px; color:#94a3b8; }
+    .check-row {
+      display:flex; align-items:center;
+      gap:8px; font-size:12px; color:#94a3b8;
+    }
     .check-row input { width:15px; height:15px; cursor:pointer; }
-    label { display:block; font-size:11px; color:#94a3b8; margin-bottom:3px; margin-top:8px; }
+
+    label {
+      display:block; font-size:11px;
+      color:#94a3b8; margin-bottom:3px; margin-top:8px;
+    }
     input[type=number] {
       width:100%; padding:7px 10px;
       background:#0f172a; color:white;
@@ -58,6 +65,15 @@
     input[type=number]:focus { border-color:#e94560; outline:none; }
     .row { display:flex; gap:8px; }
     .row > * { flex:1; }
+
+    .apply-btn {
+      margin-top:10px; width:100%; padding:7px;
+      background:#334155; color:white;
+      border:none; border-radius:4px;
+      font-size:12px; cursor:pointer;
+      transition:.2s;
+    }
+    .apply-btn:hover { background:#475569; }
 
     #status { font-size:12px; color:#64748b; min-height:14px; }
 
@@ -103,8 +119,8 @@
   <div class="section">
     <div class="section-title">How to Use</div>
     <div class="hint">
-      <b>Shaded grey areas</b> indicate locations where surge or flood data is available.<br><br>
-      <b>Click anywhere on the shaded area</b> to view the flood and surge return level chart for that location.
+      <b>Light blue shaded areas</b> indicate locations where surge or flood data is available.<br><br>
+      <b>Click anywhere on the shaded area</b> to view the flood and surge return level charts for that location.
     </div>
   </div>
 
@@ -114,8 +130,7 @@
     <div id="point-info">No location selected yet.</div>
   </div>
 
-
-  <!-- Map Range -->
+  <!-- Map extent -->
   <div class="section">
     <div class="section-title">Map View Range (optional)</div>
     <div class="check-row">
@@ -135,13 +150,7 @@
         <div><label>Lon Max (X)</label>
           <input type="number" id="lon-max" placeholder="-94.5" step="0.01"></div>
       </div>
-      <button onclick="applyRange()" style="
-        margin-top:10px; width:100%; padding:7px;
-        background:#334155; color:white;
-        border:none; border-radius:4px;
-        font-size:12px; cursor:pointer;">
-        Apply
-      </button>
+      <button class="apply-btn" onclick="applyRange()">Apply</button>
     </div>
   </div>
 
@@ -185,7 +194,7 @@ map.on("click", e => {
   runQuery();
 });
 
-// ── 載入灰色格點覆蓋層 ────────────────────────────────────────
+// ── 載入 light blue 格點覆蓋層 ───────────────────────────────
 async function loadGrid(datasetId) {
   document.getElementById("status").textContent = "Loading data coverage...";
 
@@ -217,8 +226,8 @@ async function loadGrid(datasetId) {
 
         L.rectangle(bounds, {
           color:       "transparent",
-          fillColor:   "#9ca3af",
-          fillOpacity: 0.4,
+          fillColor:   "#93c5fd",   // light blue
+          fillOpacity: 0.45,
           weight:      0,
         }).addTo(gridLayer);
       }
@@ -319,10 +328,10 @@ function drawBarCharts(data) {
     },
   ];
 
+  // Y 軸範圍：自動從資料計算
   const allVals = Object.values(values).filter(v => v !== null);
-  const yRange  = allVals.length > 0
-    ? getYRange(0, Math.max(...allVals) * 1.2)
-    : { min:0, max:10 };
+  const yMin    = 0;
+  const yMax    = allVals.length > 0 ? Math.max(...allVals) * 1.2 : 10;
 
   groups.forEach(g => {
     const vals        = g.keys.map(k => values[k]);
@@ -373,8 +382,8 @@ function drawBarCharts(data) {
         },
         scales: {
           y: {
-            min:   yRange.min,
-            max:   yRange.max,
+            min:   yMin,
+            max:   yMax,
             title: { display:true, text:"meters" }
           }
         }
