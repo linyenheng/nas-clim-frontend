@@ -42,21 +42,13 @@
     .hint {
       font-size:11px; color:#94a3b8;
       padding:8px 10px; background:#0f172a;
-      border-radius:4px; margin-top:8px;
-      line-height:1.6;
+      border-radius:4px; margin-top:8px; line-height:1.6;
     }
     .hint b { color:#e2e8f0; }
 
-    .check-row {
-      display:flex; align-items:center;
-      gap:8px; font-size:12px; color:#94a3b8;
-    }
+    .check-row { display:flex; align-items:center; gap:8px; font-size:12px; color:#94a3b8; }
     .check-row input { width:15px; height:15px; cursor:pointer; }
-
-    label {
-      display:block; font-size:11px;
-      color:#94a3b8; margin-bottom:3px; margin-top:8px;
-    }
+    label { display:block; font-size:11px; color:#94a3b8; margin-bottom:3px; margin-top:8px; }
     input[type=number] {
       width:100%; padding:7px 10px;
       background:#0f172a; color:white;
@@ -65,13 +57,11 @@
     input[type=number]:focus { border-color:#e94560; outline:none; }
     .row { display:flex; gap:8px; }
     .row > * { flex:1; }
-
     .apply-btn {
       margin-top:10px; width:100%; padding:7px;
       background:#334155; color:white;
       border:none; border-radius:4px;
-      font-size:12px; cursor:pointer;
-      transition:.2s;
+      font-size:12px; cursor:pointer; transition:.2s;
     }
     .apply-btn:hover { background:#475569; }
 
@@ -81,8 +71,16 @@
       background:white; border-radius:8px;
       padding:14px; margin-bottom:10px;
     }
-    .chart-box h4 { font-size:12px; color:#334155; margin-bottom:8px; }
-    .chart-box small { color:#94a3b8; }
+    .chart-box h4 { font-size:12px; color:#334155; margin-bottom:4px; }
+    .chart-box small { color:#94a3b8; font-size:11px; }
+
+    .ast-info {
+      font-size:11px; color:#94a3b8;
+      padding:8px; background:#0f172a;
+      border-radius:4px; margin-bottom:8px;
+      line-height:1.8;
+    }
+    .ast-info b { color:#e2e8f0; }
 
     .null-warning {
       font-size:11px; color:#f59e0b;
@@ -102,35 +100,45 @@
   <div class="section">
     <div class="section-title">Data Type</div>
     <div class="tab-group">
-      <button class="tab active-wave"
-              onclick="setDataset('wave_surge', this)">
+      <button class="tab active-wave" id="tab-wave"
+              onclick="setMode('wave_surge', this)">
         🌊 Wave Surge
       </button>
       <button class="tab disabled" onclick="notAvailable()">
         🌧 Precipitation
       </button>
-      <button class="tab disabled" onclick="notAvailable()">
+      <button class="tab" id="tab-frag"
+              onclick="setMode('fragility', this)">
         ⚠️ Fragility
       </button>
     </div>
   </div>
 
   <!-- Instructions -->
-  <div class="section">
+  <div id="hint-wave" class="section">
     <div class="section-title">How to Use</div>
     <div class="hint">
       <b>Light blue shaded areas</b> indicate locations where surge or flood data is available.<br><br>
-      <b>Click anywhere on the shaded area</b> to view the flood and surge return level charts for that location.
+      <b>Click anywhere on the shaded area</b> to view flood and surge return level charts.
     </div>
   </div>
 
-  <!-- Selected point -->
+  <div id="hint-frag" class="section" style="display:none">
+    <div class="section-title">How to Use</div>
+    <div class="hint">
+      <b>Dark blue circles</b> represent Above-ground Storage Tanks (AST).<br><br>
+      <b>Click on a circle</b> to view the failure probability and spill volume charts for that tank.<br><br>
+      <b>Error bars</b> show ± 1.5 standard deviations from 1000 Monte Carlo samples.
+    </div>
+  </div>
+
+  <!-- Selected -->
   <div class="section">
     <div class="section-title">Selected Location</div>
     <div id="point-info">No location selected yet.</div>
   </div>
 
-  <!-- Map extent -->
+  <!-- Map Range -->
   <div class="section">
     <div class="section-title">Map View Range (optional)</div>
     <div class="check-row">
@@ -163,12 +171,13 @@
 <script>
 const API = "https://nas-clim-api.onrender.com";
 
-let selectedDataset = "wave_surge";
-let selectedLat     = null;
-let selectedLon     = null;
-let marker          = null;
-let charts          = [];
-let gridLayer       = null;
+let currentMode = "wave_surge";
+let selectedLat = null;
+let selectedLon = null;
+let marker      = null;
+let charts      = [];
+let gridLayer   = null;
+let astLayer    = null;
 
 // ── 地圖 ──────────────────────────────────────────────────────
 const map = L.map("map").fitBounds([
@@ -180,26 +189,66 @@ L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
   attribution:"© OpenStreetMap"
 }).addTo(map);
 
-// 點擊地圖 → 直接查詢
+// Wave Surge 點擊
 map.on("click", e => {
+  if (currentMode !== "wave_surge") return;
+
   selectedLat = parseFloat(e.latlng.lat.toFixed(4));
   selectedLon = parseFloat(e.latlng.lng.toFixed(4));
 
   document.getElementById("point-info").innerHTML =
     `Lat: <span>${selectedLat}</span><br>Lon: <span>${selectedLon}</span>`;
 
-  if (marker) marker.remove();
+  if (marker) { marker.remove(); marker = null; }
   marker = L.marker([selectedLat, selectedLon]).addTo(map);
 
-  runQuery();
+  queryWaveSurge();
 });
 
-// ── 載入 light blue 格點覆蓋層 ───────────────────────────────
-async function loadGrid(datasetId) {
-  document.getElementById("status").textContent = "Loading data coverage...";
+// ── 模式切換 ──────────────────────────────────────────────────
+function setMode(mode, btn) {
+  currentMode = mode;
 
+  // tab 樣式
+  document.getElementById("tab-wave").className = "tab";
+  document.getElementById("tab-frag").className = "tab";
+  if (mode === "wave_surge") {
+    document.getElementById("tab-wave").className = "tab active-wave";
+  } else {
+    document.getElementById("tab-frag").className = "tab active-frag";
+  }
+
+  // hint 切換
+  document.getElementById("hint-wave").style.display =
+    mode === "wave_surge" ? "block" : "none";
+  document.getElementById("hint-frag").style.display =
+    mode === "fragility"  ? "block" : "none";
+
+  clearCharts();
+  document.getElementById("point-info").textContent = "No location selected yet.";
+  document.getElementById("status").textContent = "";
+
+  if (marker) { marker.remove(); marker = null; }
+
+  if (mode === "wave_surge") {
+    if (astLayer)  { astLayer.clearLayers(); }
+    loadGrid();
+  } else if (mode === "fragility") {
+    if (gridLayer) { gridLayer.clearLayers(); }
+    loadASTPoints();
+  }
+}
+
+function notAvailable() {
+  document.getElementById("status").textContent =
+    "This dataset is not available yet.";
+}
+
+// ── Wave Surge 格點覆蓋層 ─────────────────────────────────────
+async function loadGrid() {
+  document.getElementById("status").textContent = "Loading data coverage...";
   try {
-    const res  = await fetch(`${API}/query/${datasetId}/grid?downsample=15`);
+    const res  = await fetch(`${API}/query/wave_surge/grid?downsample=15`);
     const data = await res.json();
 
     if (gridLayer) {
@@ -211,58 +260,111 @@ async function loadGrid(datasetId) {
     const lons    = data.lons;
     const lats    = data.lats;
     const hasData = data.has_data;
-
-    const dLon = lons.length > 1 ? Math.abs(lons[1] - lons[0]) : 0.03;
-    const dLat = lats.length > 1 ? Math.abs(lats[1] - lats[0]) : 0.03;
+    const dLon    = lons.length > 1 ? Math.abs(lons[1]-lons[0]) : 0.03;
+    const dLat    = lats.length > 1 ? Math.abs(lats[1]-lats[0]) : 0.03;
 
     for (let i = 0; i < lons.length; i++) {
       for (let j = 0; j < lats.length; j++) {
         if (!hasData[i][j]) continue;
-
-        const bounds = [
-          [lats[j] - dLat/2, lons[i] - dLon/2],
-          [lats[j] + dLat/2, lons[i] + dLon/2],
-        ];
-
-        L.rectangle(bounds, {
-          color:       "transparent",
-          fillColor:   "#93c5fd",   // light blue
-          fillOpacity: 0.45,
-          weight:      0,
+        L.rectangle([
+          [lats[j]-dLat/2, lons[i]-dLon/2],
+          [lats[j]+dLat/2, lons[i]+dLon/2],
+        ], {
+          color:"transparent",
+          fillColor:"#93c5fd",
+          fillOpacity:0.45,
+          weight:0,
         }).addTo(gridLayer);
       }
     }
-
     document.getElementById("status").textContent =
       "Click on the shaded area to query.";
-
   } catch(e) {
     document.getElementById("status").textContent =
       `Failed to load coverage: ${e.message}`;
   }
 }
 
-loadGrid("wave_surge");
+// ── Fragility AST 圓點 ────────────────────────────────────────
+async function loadASTPoints() {
+  document.getElementById("status").textContent = "Loading AST locations...";
+  try {
+    const res  = await fetch(`${API}/fragility/points`);
+    const data = await res.json();
 
-// ── Dataset 切換 ──────────────────────────────────────────────
-function setDataset(name, btn) {
-  selectedDataset = name;
-  document.querySelectorAll(".tab:not(.disabled)").forEach(t => {
-    t.className = "tab";
-  });
-  const classMap = {
-    wave_surge:    "active-wave",
-    precipitation: "active-precip",
-    fragility:     "active-frag",
-  };
-  btn.className = `tab ${classMap[name]}`;
-  clearCharts();
-  loadGrid(name);
+    if (astLayer) {
+      astLayer.clearLayers();
+    } else {
+      astLayer = L.layerGroup().addTo(map);
+    }
+
+    data.points.forEach(pt => {
+      const circle = L.circleMarker([pt.lat, pt.lon], {
+        radius:      5,
+        color:       "#1e3a5f",
+        fillColor:   "#1d4ed8",
+        fillOpacity: 0.85,
+        weight:      1.5,
+      }).addTo(astLayer);
+
+      circle.on("click", () => {
+        document.getElementById("point-info").innerHTML =
+          `<div class="ast-info">
+            <b>AST ID:</b> ${pt.ast_id}<br>
+            <b>Type:</b> ${pt.type}<br>
+            <b>Height:</b> ${pt.height} m<br>
+            <b>Lat:</b> ${pt.lat} &nbsp; <b>Lon:</b> ${pt.lon}
+          </div>`;
+        queryAST(pt.ast_id);
+      });
+
+      circle.bindTooltip(
+        `AST ${pt.ast_id} | ${pt.type}`,
+        { permanent:false, direction:"top", offset:[0,-5] }
+      );
+    });
+
+    document.getElementById("status").textContent =
+      `${data.count} ASTs loaded. Click a circle to view charts.`;
+
+  } catch(e) {
+    document.getElementById("status").textContent =
+      `Failed to load ASTs: ${e.message}`;
+  }
 }
 
-function notAvailable() {
-  document.getElementById("status").textContent =
-    "This dataset is not available yet.";
+// ── Wave Surge 查詢 ───────────────────────────────────────────
+async function queryWaveSurge() {
+  const status = document.getElementById("status");
+  status.textContent = "Querying...";
+  clearCharts();
+
+  try {
+    const res  = await fetch(
+      `${API}/query/wave_surge/point?lat=${selectedLat}&lon=${selectedLon}`
+    );
+    const data = await res.json();
+    drawWaveSurgeCharts(data);
+    status.textContent = "Done. Click another location to update.";
+  } catch(e) {
+    status.textContent = `Error: ${e.message}`;
+  }
+}
+
+// ── Fragility AST 查詢 ────────────────────────────────────────
+async function queryAST(astId) {
+  const status = document.getElementById("status");
+  status.textContent = "Loading AST data...";
+  clearCharts();
+
+  try {
+    const res  = await fetch(`${API}/fragility/ast/${astId}`);
+    const data = await res.json();
+    drawFragilityCharts(data);
+    status.textContent = `AST ${astId} — Click another tank to update.`;
+  } catch(e) {
+    status.textContent = `Error: ${e.message}`;
+  }
 }
 
 // ── Map Range ─────────────────────────────────────────────────
@@ -276,11 +378,7 @@ function applyRange() {
   const latMax = parseFloat(document.getElementById("lat-max").value) || 30.1;
   const lonMin = parseFloat(document.getElementById("lon-min").value) || -95.5;
   const lonMax = parseFloat(document.getElementById("lon-max").value) || -94.5;
-
-  map.fitBounds([
-    [latMin, lonMin],
-    [latMax, lonMax]
-  ]);
+  map.fitBounds([[latMin, lonMin],[latMax, lonMax]]);
 }
 
 // ── 清除圖表 ──────────────────────────────────────────────────
@@ -290,28 +388,8 @@ function clearCharts() {
   document.getElementById("charts-area").innerHTML = "";
 }
 
-// ── 查詢 ──────────────────────────────────────────────────────
-async function runQuery() {
-  if (selectedLat === null) return;
-
-  const status = document.getElementById("status");
-  status.textContent = "Querying...";
-  clearCharts();
-
-  try {
-    const url  = `${API}/query/${selectedDataset}/point` +
-                 `?lat=${selectedLat}&lon=${selectedLon}`;
-    const res  = await fetch(url);
-    const data = await res.json();
-    drawBarCharts(data);
-    status.textContent = "Done. Click another location to update.";
-  } catch(e) {
-    status.textContent = `Error: ${e.message}`;
-  }
-}
-
-// ── Bar Chart ─────────────────────────────────────────────────
-function drawBarCharts(data) {
+// ── Wave Surge Bar Charts ─────────────────────────────────────
+function drawWaveSurgeCharts(data) {
   const area   = document.getElementById("charts-area");
   const values = data.values;
 
@@ -328,29 +406,24 @@ function drawBarCharts(data) {
     },
   ];
 
-  // Y 軸範圍：自動從資料計算
   const allVals = Object.values(values).filter(v => v !== null);
-  const yMin    = 0;
   const yMax    = allVals.length > 0 ? Math.max(...allVals) * 1.2 : 10;
 
   groups.forEach(g => {
     const vals        = g.keys.map(k => values[k]);
-    const colors      = g.keys.map((k, i) =>
-      values[k] === null ? "#d1d5db" : g.colors[i % g.colors.length]
-    );
+    const colors      = g.keys.map((k,i) =>
+      values[k] === null ? "#d1d5db" : g.colors[i % g.colors.length]);
     const displayVals = vals.map(v => v === null ? 0 : v);
     const nullCount   = vals.filter(v => v === null).length;
 
     const box = document.createElement("div");
     box.className = "chart-box";
     box.innerHTML = `
-      <h4>${g.title}<br>
-      <small>Lat: ${data.lat} &nbsp; Lon: ${data.lon}</small></h4>
+      <h4>${g.title}</h4>
+      <small>Lat: ${data.lat} &nbsp; Lon: ${data.lon}</small>
       <canvas></canvas>
       ${nullCount > 0
-        ? `<div class="null-warning">
-             ⚠ ${nullCount} variable(s) have no data at this location.
-           </div>`
+        ? `<div class="null-warning">⚠ ${nullCount} variable(s) have no data at this location.</div>`
         : ""}
     `;
     area.appendChild(box);
@@ -368,28 +441,186 @@ function drawBarCharts(data) {
       options: {
         responsive: true,
         plugins: {
-          legend: { display: false },
+          legend: { display:false },
           tooltip: {
             callbacks: {
               label: ctx => {
                 const orig = vals[ctx.dataIndex];
-                return orig === null
-                  ? "No data"
-                  : `${orig.toFixed(4)} m`;
+                return orig === null ? "No data" : `${orig.toFixed(4)} m`;
               }
             }
           }
         },
         scales: {
-          y: {
-            min:   yMin,
-            max:   yMax,
-            title: { display:true, text:"meters" }
-          }
+          y: { min:0, max:yMax, title:{ display:true, text:"meters" } }
         }
       }
     }));
   });
+}
+
+// ── Fragility Bar Charts with Error Bars ─────────────────────
+function drawFragilityCharts(data) {
+  const area = document.getElementById("charts-area");
+  const STD  = 1.5;
+
+  // Chart 1: Pf_System_ (Failure Probability)
+  const pfMean = data.pf.mean;
+  const pfErr  = data.pf.std * STD;
+
+  const box1 = document.createElement("div");
+  box1.className = "chart-box";
+  box1.innerHTML = `
+    <h4>Failure Probability (Pf_System_)</h4>
+    <small>AST ${data.ast_id} | ${data.type} | Height: ${data.height} m</small>
+    <canvas id="chart-pf"></canvas>
+  `;
+  area.appendChild(box1);
+
+  charts.push(new Chart(box1.querySelector("canvas"), {
+    type: "bar",
+    data: {
+      labels: ["Pf_System_"],
+      datasets: [{
+        label:           "Mean ± 1.5 STD",
+        data:            [pfMean],
+        backgroundColor: "#ef444488",
+        borderColor:     "#ef4444",
+        borderWidth:     2,
+        borderRadius:    5,
+        // error bar 用 custom plugin 模擬
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { display:false },
+        tooltip: {
+          callbacks: {
+            label: () =>
+              `Mean: ${pfMean.toFixed(4)} | ±1.5σ: [${Math.max(0,pfMean-pfErr).toFixed(4)}, ${Math.min(1,pfMean+pfErr).toFixed(4)}]`
+          }
+        }
+      },
+      scales: {
+        y: {
+          min:   0,
+          max:   1,
+          title: { display:true, text:"Failure Probability (0–1)" }
+        }
+      }
+    },
+    plugins: [{
+      id: "errorBar",
+      afterDatasetsDraw(chart) {
+        const ctx = chart.ctx;
+        const meta = chart.getDatasetMeta(0);
+        const bar  = meta.data[0];
+        const x    = bar.x;
+        const yTop    = chart.scales.y.getPixelForValue(Math.min(1, pfMean + pfErr));
+        const yBottom = chart.scales.y.getPixelForValue(Math.max(0, pfMean - pfErr));
+        const yMid    = chart.scales.y.getPixelForValue(pfMean);
+
+        ctx.save();
+        ctx.strokeStyle = "#b91c1c";
+        ctx.lineWidth   = 2;
+
+        // 垂直線
+        ctx.beginPath();
+        ctx.moveTo(x, yTop);
+        ctx.lineTo(x, yBottom);
+        ctx.stroke();
+
+        // 上下横線
+        [-1, 1].forEach(dir => {
+          const y = dir === 1 ? yTop : yBottom;
+          ctx.beginPath();
+          ctx.moveTo(x - 8, y);
+          ctx.lineTo(x + 8, y);
+          ctx.stroke();
+        });
+
+        ctx.restore();
+      }
+    }]
+  }));
+
+  // Chart 2: Spill_Volume_
+  const svMean = data.sv.mean;
+  const svErr  = data.sv.std * STD;
+
+  const box2 = document.createElement("div");
+  box2.className = "chart-box";
+  box2.innerHTML = `
+    <h4>Spill Volume (Spill_Volume_)</h4>
+    <small>AST ${data.ast_id} | ${data.type} | Height: ${data.height} m</small>
+    <canvas id="chart-sv"></canvas>
+  `;
+  area.appendChild(box2);
+
+  charts.push(new Chart(box2.querySelector("canvas"), {
+    type: "bar",
+    data: {
+      labels: ["Spill_Volume_"],
+      datasets: [{
+        label:           "Mean ± 1.5 STD",
+        data:            [svMean],
+        backgroundColor: "#f9731688",
+        borderColor:     "#f97316",
+        borderWidth:     2,
+        borderRadius:    5,
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { display:false },
+        tooltip: {
+          callbacks: {
+            label: () =>
+              `Mean: ${svMean.toFixed(2)} | ±1.5σ: [${Math.max(0,svMean-svErr).toFixed(2)}, ${(svMean+svErr).toFixed(2)}]`
+          }
+        }
+      },
+      scales: {
+        y: {
+          min:   0,
+          max:   Math.ceil((svMean + svErr) * 1.2) || 100,
+          title: { display:true, text:"Spill Volume" }
+        }
+      }
+    },
+    plugins: [{
+      id: "errorBar",
+      afterDatasetsDraw(chart) {
+        const ctx  = chart.ctx;
+        const meta = chart.getDatasetMeta(0);
+        const bar  = meta.data[0];
+        const x    = bar.x;
+        const yTop    = chart.scales.y.getPixelForValue(svMean + svErr);
+        const yBottom = chart.scales.y.getPixelForValue(Math.max(0, svMean - svErr));
+
+        ctx.save();
+        ctx.strokeStyle = "#c2410c";
+        ctx.lineWidth   = 2;
+
+        ctx.beginPath();
+        ctx.moveTo(x, yTop);
+        ctx.lineTo(x, yBottom);
+        ctx.stroke();
+
+        [-1, 1].forEach(dir => {
+          const y = dir === 1 ? yTop : yBottom;
+          ctx.beginPath();
+          ctx.moveTo(x - 8, y);
+          ctx.lineTo(x + 8, y);
+          ctx.stroke();
+        });
+
+        ctx.restore();
+      }
+    }]
+  }));
 }
 </script>
 </body>
