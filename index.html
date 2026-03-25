@@ -360,6 +360,7 @@ async function queryAST(astId) {
   try {
     const res  = await fetch(`${API}/fragility/ast/${astId}`);
     const data = await res.json();
+    console.log("AST data:", JSON.stringify(data)); // ← 加這行
     drawFragilityCharts(data);
     status.textContent = `AST ${astId} — Click another tank to update.`;
   } catch(e) {
