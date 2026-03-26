@@ -34,6 +34,8 @@
     .tab.active-wave   { background:#8b5cf6; border-color:#8b5cf6; color:white; }
     .tab.active-precip { background:#0ea5e9; border-color:#0ea5e9; color:white; }
     .tab.active-frag   { background:#ef4444; border-color:#ef4444; color:white; }
+    .tab.active-rp     { background:#95c1c7; border-color:#95c1c7; color:white; }
+    .tab.active-norp   { background:#575050; border-color:#575050; color:white; }
     .tab.disabled      { opacity:.4; cursor:not-allowed; }
 
     #point-info { font-size:13px; color:#94a3b8; line-height:1.8; }
@@ -45,7 +47,7 @@
       border-radius:4px; margin-top:8px; line-height:1.6;
     }
     .hint b { color:#e2e8f0; }
-
+    
     .check-row { display:flex; align-items:center; gap:8px; font-size:12px; color:#94a3b8; }
     .check-row input { width:15px; height:15px; cursor:pointer; }
     label { display:block; font-size:11px; color:#94a3b8; margin-bottom:3px; margin-top:8px; }
@@ -102,21 +104,49 @@
     <div class="tab-group">
       <button class="tab active-wave" id="tab-wave"
               onclick="setMode('wave_surge', this)">
-        🌊 Wave Surge
+        🌊 Storm Surge
       </button>
       <button class="tab disabled" onclick="notAvailable()">
         🌧 Precipitation
       </button>
       <button class="tab" id="tab-frag"
               onclick="setMode('fragility', this)">
-        ⚠️ Fragility
+        ⚠️  Fragility
       </button>
     </div>
   </div>
 
+
+  <!-- Return Period -->
+  <div class="section">
+    <div class="section-title">Show Floodplains</div>
+    <div class="tab-group">
+      <button class="tab year" id="tab-25yr"
+              onclick="setRP('25yr', this)">
+        25-year
+      </button>
+      <button class="tab year" id="tab-50yr"
+              onclick="setRP('50yr', this)">
+        50-year
+      </button>
+      <button class="tab year" id="tab-100yr"
+              onclick="setRP('100yr', this)">
+        100-year
+      </button>
+    </div>
+  </div>
+
+
+
+
+
+
+
+
+
   <!-- Instructions -->
   <div id="hint-wave" class="section">
-    <div class="section-title">How to Use</div>
+    <div class="section-title" >How to Use</div>
     <div class="hint">
       <b>Light blue shaded areas</b> indicate locations where surge or flood data is available.<br><br>
       <b>Click anywhere on the shaded area</b> to view flood and surge return level charts.
@@ -169,9 +199,11 @@
 <div id="map"></div>
 
 <script>
-const API = "https://nas-clim-api.onrender.com";
+	<!-- const API = "https://nas-clim-api.onrender.com"; -->
+const API = "https://nas-clim-api-ih6l.onrender.com";
 
 let currentMode = "wave_surge";
+let currentRP   = "100yr";
 let selectedLat = null;
 let selectedLon = null;
 let marker      = null;
@@ -239,16 +271,41 @@ function setMode(mode, btn) {
   }
 }
 
-function notAvailable() {
-  document.getElementById("status").textContent =
-    "This dataset is not available yet.";
+function setRP(rp, btn) {
+  
+  document.getElementById("tab-25yr").className = "tab";
+  document.getElementById("tab-50yr").className = "tab";
+  document.getElementById("tab-100yr").className = "tab";
+
+  if (gridLayer) { 
+    gridLayer.clearLayers();  
+<!-- If we click the same button twice, toggle all layers -->
+    if (rp === currentRP) { 
+	    currentRP='None';
+	    return; 
+    }  
+  }
+
+  currentRP = rp;
+  switch(rp) {
+    case "25yr":
+      document.getElementById("tab-25yr").className = "tab active-rp";
+      break;
+    case "50yr":
+      document.getElementById("tab-50yr").className = "tab active-rp";
+      break;
+    case "100yr":
+      document.getElementById("tab-100yr").className = "tab active-rp";
+      break;
+  }
+  loadGrid()
 }
 
 // ── Wave Surge 格點覆蓋層 ─────────────────────────────────────
 async function loadGrid() {
   document.getElementById("status").textContent = "Loading data coverage...";
   try {
-    const res  = await fetch(`${API}/query/wave_surge/grid?downsample=15`);
+    const res  = await fetch(`${API}/query/wave_surge/grid?downsample=15&check_rp=${currentRP}`);
     const data = await res.json();
 
     if (gridLayer) {
@@ -271,7 +328,8 @@ async function loadGrid() {
           [lats[j]+dLat/2, lons[i]+dLon/2],
         ], {
           color:"transparent",
-          fillColor:"#93c5fd",
+          color:"#0f48f5",
+          fillColor:"#0f48f5",
           fillOpacity:0.45,
           weight:0,
         }).addTo(gridLayer);
