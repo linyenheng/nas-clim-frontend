@@ -3,7 +3,7 @@ larger collaboration between multiple universities. (Work in progress; will be u
 
 URL for this fork: https://sustielz.github.io/nas-clim-frontend/
 
-Hazards include:
+Hazards for this project will include:
 - Storm Surge
 - Rainfall 
 - Wind
