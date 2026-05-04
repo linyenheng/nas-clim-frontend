@@ -4,190 +4,61 @@
   <meta charset="UTF-8">
   <title>NAS Climate Visualizer</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <link rel="stylesheet" href="./index.css"/>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <style>
-    * { margin:0; padding:0; box-sizing:border-box; }
-    body { font-family:sans-serif; display:flex; height:100vh; background:#0d0d1a; }
-
-    #sidebar {
-      width:420px; min-width:420px; padding:18px;
-      background:#1a1a2e; color:white;
-      overflow-y:auto; display:flex;
-      flex-direction:column; gap:12px;
-    }
-
-    h2 { color:#f8fafc; font-size:17px; letter-spacing:.5px; }
-
-    .section { background:#16213e; border-radius:8px; padding:14px; }
-    .section-title {
-      font-size:10px; text-transform:uppercase;
-      letter-spacing:1.5px; color:#64748b; margin-bottom:10px;
-    }
-
-    .tab-group { display:flex; gap:6px; flex-wrap:wrap; }
-    .tab {
-      padding:6px 12px; border-radius:20px;
-      border:1px solid #334155; background:transparent;
-      color:#94a3b8; font-size:12px; cursor:pointer; transition:.2s;
-    }
-    .tab.active-wave   { background:#8b5cf6; border-color:#8b5cf6; color:white; }
-    .tab.active-precip { background:#0ea5e9; border-color:#0ea5e9; color:white; }
-    .tab.active-frag   { background:#ef4444; border-color:#ef4444; color:white; }
-    .tab.active-frp     { background:#95c1c7; border-color:#95c1c7; color:white; }
-    .tab.active-srp     { background:#ef4444; border-color:#ef4444; color:white; }
-    .tab.active-norp   { background:#575050; border-color:#575050; color:white; }
-    .tab.disabled      { opacity:.4; cursor:not-allowed; }
-
-    #point-info { font-size:13px; color:#94a3b8; line-height:1.8; }
-    #point-info span { color:#e94560; font-weight:bold; }
-
-
-    .hint{ display:none;}
-    .hint-button {
-	font-size:15px; color:'gray'; float:right;
-    }
-    .hint-button:hover + .hint {display:block;}
-    .hint-body {
-      display:block;
-      font-size:11px; color:#94a3b8;
-      padding:8px 10px; background:#0f172a;
-      border-radius:4px; margin-top:8px; line-height:1.6;
-    }
-    .hint b { color:#e2e8f0; }
-    
-    .check-row { display:flex; align-items:center; gap:8px; font-size:12px; color:#94a3b8; }
-    .check-row input { width:15px; height:15px; cursor:pointer; }
-    label { display:block; font-size:11px; color:#94a3b8; margin-bottom:3px; margin-top:8px; }
-    input[type=number] {
-      width:100%; padding:7px 10px;
-      background:#0f172a; color:white;
-      border:1px solid #334155; border-radius:4px; font-size:13px;
-    }
-    input[type=number]:focus { border-color:#e94560; outline:none; }
-    .row { display:flex; gap:8px; }
-    .row > * { flex:1; }
-    .apply-btn {
-      margin-top:10px; width:100%; padding:7px;
-      background:#334155; color:white;
-      border:none; border-radius:4px;
-      font-size:12px; cursor:pointer; transition:.2s;
-    }
-    .apply-btn:hover { background:#475569; }
-
-    #status { font-size:12px; color:#64748b; min-height:14px; }
-
-    .chart-box {
-      background:white; border-radius:8px;
-      padding:14px; margin-bottom:10px;
-    }
-    .chart-box h4 { font-size:12px; color:#334155; margin-bottom:4px; }
-    .chart-box small { color:#94a3b8; font-size:11px; }
-
-    .ast-info {
-      font-size:11px; color:#94a3b8;
-      padding:8px; background:#0f172a;
-      border-radius:4px; margin-bottom:8px;
-      line-height:1.8;
-    }
-    .ast-info b { color:#e2e8f0; }
-
-    .null-warning {
-      font-size:11px; color:#f59e0b;
-      margin-top:6px; padding:6px 8px;
-      background:#451a03; border-radius:4px;
-    }
-
-    #map { flex:1; }
-  </style>
 </head>
 <body>
 
 
 <div id="sidebar">
-  <h2>🌊 NAS Climate Visualizer</h2>
+  <h2>NAS Climate Visualizer</h2>
 
   <!-- Floodplains and Map Options -->
-  
   <div class="section">
     <div class="section-title">Show Floodplains
       <div class="hint-button"> ? </div>
       <div id="hint-wave" class="hint">
-	<div class="section">
-	  <div class="hint-body">
-    	    <b>Light blue shaded areas</b> indicate locations where surge or flood data is available.<br><br>
-            <b>Click anywhere on the shaded area</b> to view flood and surge return level charts.
+	      <div class="section">
+	        <div class="hint-body">
+          	  <b>Light blue shaded areas</b> indicate locations where surge or flood data is available.
+          	  <br><br>
+              <b>Click anywhere on the shaded area</b> to view flood and surge return level charts.
           </div>
         </div>
       </div>
     </div>
-
-
     <div class="tab-group">
-      <button class="tab year" id="tab-f25yr"
-              onclick='setRP("f25yr", this)'>
-        25-year
-      </button>
-      <button class="tab year" id="tab-f50yr"
-              onclick='setRP("f50yr", this)'>
-        50-year
-      </button>
-      <button class="tab year" id="tab-f100yr"
-              onclick='setRP("f100yr", this)'>
-        100-year
-      </button>
-      <button class="tab disabled" id="tab-togglerain"
-              onclick=''>
-        Toggle Rain
-      </button>
+      <button class="tab year" id="tab-f25yr"> 25-year </button>
+      <button class="tab year" id="tab-f50yr"> 50-year </button>
+      <button class="tab year" id="tab-f100yr"> 100-year </button>      
+      <button class="tab disabled" id="tab-togglerain"> Toggle Rain </button>
     </div>
-    
     <br>
-
     <div class="section-title">Show Spill
-
-    <div class="hint-button"> ? </div>
+      <div class="hint-button"> ? </div>
       <div id="hint-frag" class="hint" >
         <div class="section">
-	  <div class="hint-body">
+          <div class="hint-body"> </div>
         </div>
       </div>
     </div>
-
-
-    </div>
     <div class="tab-group">
-      <!--      <button class="tab year" id="tab-s25yr" -->
-      <button class="tab disabled" id="tab-s25yr"
-              onclick='setRP("s25yr", this)'>
-        25-year
-      </button>
-      <!--      <button class="tab year" id="tab-s50yr" -->
-      <button class="tab disabled" id="tab-s50yr"
-              onclick='setRP("s50yr", this)'>
-        50-year
-      </button>
-      <!--      <button class="tab year" id="tab-s100yr" -->
-      <button class="tab disabled" id="tab-s100yr"
-              onclick='setRP("s100yr", this)'>
-        100-year
-      </button>
+      <button class="tab disabled" id="tab-s25yr"> 25-year </button>
+      <button class="tab disabled" id="tab-s50yr"> 50-year </button>
+      <button class="tab disabled" id="tab-s100yr"> 100-year </button>
     </div>
   </div>
-
   <div class="check-row">                                          
-    <input type="checkbox" id="show-tanks" onchange="toggleAST()"> 
-    <span>Show Storage Tanks</span>
+    <input type="checkbox" id="show-tanks"> 
+    <span> Show Storage Tanks </span>
   </div>
-
-
-
-
-  
   <div class="check-row">
-    <input type="checkbox" id="custom-range" onchange="toggleRange()">
+    <input type="checkbox" id="custom-range">
     <span>Set custom map extent</span>
   </div>
+  
+  <!--  Custom Map Extent -->
   <div id="range-inputs" style="display:none">
     <div class="row">
       <div><label>Lat Min (Y)</label>
@@ -201,7 +72,7 @@
       <div><label>Lon Max (X)</label>
         <input type="number" id="lon-max" placeholder="-94.5" step="0.01"></div>
     </div>
-    <button class="apply-btn" onclick="applyRange()">Apply</button>
+    <button class="apply-btn" id="map-extent-button"> Apply </button>
   </div>
 
 
@@ -211,59 +82,53 @@
   <div class="section">
     <div class="section-title">Chart Data Type</div>
     <div class="tab-group">
-      <button class="tab active-wave" id="tab-wave"
-              onclick="setMode('wave_surge', this)">
-        Storm Surge
-      </button>
-      <button class="tab disabled" onclick="notAvailable()">
-        Precipitation
-      </button>
-      <button class="tab" id="tab-frag"
-              onclick="setMode('fragility', this)">
-        Fragility
-      </button>
+      <button class="tab active-wave" id="tab-wave"> Storm Surge </button>
+      <button class="tab disabled" id="tab-wind"> Wind </button>
+      <button class="tab disabled" id="tab-rain"> Precipitation </button>
+      <button class="tab" id="tab-frag"> Fragility </button>
     </div>
   </div>
 
   <!-- Selected -->
   <div class="section">
     <div class="section-title">Selected Location
-    <div class="hint-button"> ? </div>
+      <div class="hint-button"> ? </div>
       <div id="hint-frag" class="hint" >
         <div class="section">
-	  <div class="hint-body">
-	    <b>Dark blue circles</b> represent Above-ground Storage Tanks (AST).<br><br>
-            <b>Click on a circle</b> to view the failure probability and spill volume charts for that tank.<br><br>
+	        <div class="hint-body">
+	          <b>Dark blue circles</b> represent Above-ground Storage Tanks (AST).
+	          <br><br>
+            <b>Click on a circle</b> to view the failure probability and spill volume charts for that tank.
+            <br><br>
             <b>Error bars</b> show ± 1.5 standard deviations from 1000 Monte Carlo samples.
-	  </div>
-	</div>
+	        </div>
+	      </div>
       </div>
     </div>
-    <div id="point-info">No location selected yet.</div>
+    <div id="point-info"> No location selected yet.</div>
   </div>
-
-
   <div id="status"></div>
   <div id="charts-area"></div>
 </div>
 
+
 <div id="map"></div>
 
+
 <script>
-	<!-- const API = "https://nas-clim-api.onrender.com"; -->
+// const API = "https://nas-clim-api.onrender.com"; 
 const API = "https://nas-clim-api-ih6l.onrender.com";
 
-let currentMode = "wave_surge";
+let currentMode = "wave";
 let currentRP   = "100yr";
 let currentShowTanks = false;
 let currentCircle= null; 
 let currentScrollPos = 0;
-let selectedLat = null;
-let selectedLon = null;
-let marker      = null;
+let gridMarker      = null;
 let charts      = [];
 let floodLayers = {};
 let astLayer    = null;
+
 
 // ── 地圖 ──────────────────────────────────────────────────────
 const map = L.map("map").fitBounds([
@@ -275,37 +140,70 @@ L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
   attribution:"© OpenStreetMap"
 }).addTo(map);
 
-// Wave Surge 點擊
-map.on("click", e => {
-  if (marker) {    // To avoid clicking on map and tank at same time, dont re-click if event has same coords as previous event (from tank)
-    if (Math.abs(e.latlng.lat - marker.getLatLng().lat) < 0.0001)  return;
-  }
+// Event listeners
+map.addEventListener("click", mapClick);
+document.getElementById("show-tanks"       ).addEventListener("change", toggleAST)
+document.getElementById("map-extent-button").addEventListener("click",  applyRange)
+document.getElementById("custom-range"     ).addEventListener("change", toggleRange)
+document.getElementById("tab-f25yr"        ).addEventListener("click",  setRP); 
+document.getElementById("tab-f50yr"        ).addEventListener("click",  setRP); 
+document.getElementById("tab-f100yr"       ).addEventListener("click",  setRP); 
+document.getElementById("tab-s25yr"        ).addEventListener("click",  setRP); 
+document.getElementById("tab-s50yr"        ).addEventListener("click",  setRP); 
+document.getElementById("tab-s100yr"       ).addEventListener("click",  setRP); 
+document.getElementById("tab-wave"         ).addEventListener("click",  setMode); 
+document.getElementById("tab-wind"         ).addEventListener("click",  setMode); 
+document.getElementById("tab-rain"         ).addEventListener("click",  setMode); 
+document.getElementById("tab-frag"         ).addEventListener("click",  setMode); 
+
+
+// Handle map clicks (not tank clicks)
+function mapClick(event) {
+  // Prevent function from triggering if we're clicking on a tank 
+  if (gridMarker && (Math.abs(event.latlng.lat - gridMarker.getLatLng().lat) < 0.0001)) {  return; }
+  
   currentCircle = null; 
-  selectedLat = parseFloat(e.latlng.lat.toFixed(4));
-  selectedLon = parseFloat(e.latlng.lng.toFixed(4));
-  
+  lat = parseFloat(event.latlng.lat.toFixed(4));
+  lon = parseFloat(event.latlng.lng.toFixed(4));
   document.getElementById("point-info").innerHTML =
-    `Lat: <span>${selectedLat}</span><br>Lon: <span>${selectedLon}</span>`;
+    `Lat: <span>${lat}</span><br>Lon: <span>${lon}</span>`;
 
-  if (marker) { marker.remove(); marker = null; }
-  marker = L.marker([selectedLat, selectedLon]).addTo(map);
-  
-  queryWaveSurge();
-});
+  if (gridMarker) {   gridMarker.remove(); gridMarker = null; }
+  gridMarker = L.marker([lat, lon]).addTo(map);
+  queryWaveSurge(lat, lon);
+}
 
-// ── 模式切換 ──────────────────────────────────────────────────
-function setMode(mode, btn) {
+//Handle side-button settings for return period and data type
+async function setRP(event) {
+  tab = event.target
+  rp = tab.id.slice(4);      // All connected buttons have id of form "tab-{rp}"
+  currentRP = rp;
+  if (!(Object.keys(floodLayers).includes(rp))) {   
+    await loadGrid(rp); 
+  } 
+  layer = floodLayers[rp];
+  if (map.hasLayer(layer)) {
+    map.removeLayer(layer);
+  } else {
+    await map.addLayer(layer);
+    if ( (astLayer !== null) && (map.hasLayer(astLayer))) { // Bring AST layer to front 
+      map.removeLayer(astLayer);
+      map.addLayer(astLayer);
+    }
+  }
+  tab.className = (tab.className === `tab active-${rp[0]}rp`) ? "tab" : `tab active-${rp[0]}rp`;
+}
+
+function setMode(event) {
+  mode = event.target.id.slice(4);  // All connected buttons have id of form "tab-{mode}"
   currentMode = mode;
-
-  // tab 樣式
   document.getElementById("tab-wave").className = "tab";
   document.getElementById("tab-frag").className = "tab";
-  if (mode === "wave_surge") {
+  if (mode === "wave") {
     document.getElementById("tab-wave").className = "tab active-wave";
   } else {
     document.getElementById("tab-frag").className = "tab active-frag";
   }
-
   clearCharts();
   document.getElementById("point-info").textContent = "No location selected yet.";
   document.getElementById("status").textContent = "";
@@ -313,23 +211,9 @@ function setMode(mode, btn) {
   if (currentCircle !== null) { currentCircle.fire('click');}
 }
 
-async function setRP(rp, btn) {
-  await toggleGrid(rp);
-  console.log("tab-"+rp)
-  tab = document.getElementById("tab-"+rp);
-  
-  if (tab.className === `tab active-${rp[0]}rp`) {
-    tab.className = "tab";
-  } else { 
-	  tab.className = `tab active-${rp[0]}rp`;
-  }
-  currentRP = rp;
-}
 
-// ── Wave Surge 格點覆蓋層 ─────────────────────────────────────
-
+// Load gridded data
 async function loadGrid(rp) {
-
   document.getElementById("status").textContent = "Loading hazard extent...";
   try {
     rp_mode = rp[0];
@@ -364,36 +248,15 @@ async function loadGrid(rp) {
     floodLayers[rp] = gridLayer; 
   } catch(e) {
     document.getElementById("status").textContent = `Failed to load coverage: ${e.message}`;
-  }                     
+  }  
 }
 
-async function toggleGrid(rp) {
-  if (!(Object.keys(floodLayers).includes(rp))) {
-    await loadGrid(rp); 
-  }
-  layer = floodLayers[rp];
-  if (map.hasLayer(layer)) {
-    map.removeLayer(layer);
-  } else {
-    await map.addLayer(layer);
-    if (map.hasLayer(astLayer)) {
-     map.removeLayer(astLayer);
-     map.addLayer(astLayer);
-     }
-  }
-}
-
-
-
-
-// ── Fragility AST 圓點 ────────────────────────────────────────
+// Load tank data
 async function loadASTPoints() {
   document.getElementById("status").textContent = "Loading AST locations...";
   try {
     const res  = await fetch(`${API}/fragility/points`);
-    console.log('fetched');
     const data = await res.json();
-    console.log(data);
     if (astLayer) {
       astLayer.clearLayers();
     } else {
@@ -410,38 +273,26 @@ async function loadASTPoints() {
       }).addTo(astLayer);
 
       circle.on("click", () => {
-	 currentCircle = circle;
-	 document.getElementById("point-info").innerHTML =
-          `<div class="ast-info">
-            <b>AST ID:</b> ${pt.ast_id}<br>
-            <b>Type:</b> ${pt.type}<br>
-            <b>Height:</b> ${pt.height} m<br>
-            <b>Lat:</b> ${pt.lat} &nbsp; <b>Lon:</b> ${pt.lon}<br>
-          </div>`;
+	     currentCircle = circle;
+	     document.getElementById("point-info").innerHTML =
+              `<div class="ast-info">
+                <b>AST ID:</b> ${pt.ast_id}<br>
+                <b>Type:</b> ${pt.type}<br>
+                <b>Height:</b> ${pt.height} m<br>
+                <b>Lat:</b> ${pt.lat} &nbsp; <b>Lon:</b> ${pt.lon}<br>
+              </div>`;
         queryAST(pt.ast_id);
 		
-  	if (marker) { marker.remove(); marker = null; }
+  	if (gridMarker) { gridMarker.remove(); gridMarker = null; }
       
 
-        marker =  L.circleMarker([pt.lat, pt.lon], {
+        gridMarker =  L.circleMarker([pt.lat, pt.lon], {
           radius:      9,
           color:       "#800414",
           fillColor:   "red",
           fillOpacity: 0.95,
           weight:      2.5,
         }).addTo(map);
-
-
-
-
-
-
-
-
-
-
-
-
       });
 
       circle.bindTooltip(
@@ -460,8 +311,8 @@ async function loadASTPoints() {
 }
 
 
+// Toggle AST layer on and off
 async function toggleAST() {
-  
   if (astLayer === null)      { await loadASTPoints();     }
   if (document.getElementById("show-tanks").checked) {
     if (!(map.hasLayer(astLayer))) { 
@@ -470,22 +321,23 @@ async function toggleAST() {
   } else { 
     if (  map.hasLayer(astLayer) ) { 
 	    map.removeLayer(astLayer); 
-  	    if (marker) { marker.remove(); marker = null; }
+  	    if (gridMarker) { gridMarker.remove(); gridMarker = null; }
     }
   }
 }
 
 
 
-// ── Wave Surge 查詢 ───────────────────────────────────────────
-async function queryWaveSurge() {
+
+// Query flood at a particular gridpoint
+async function queryWaveSurge(lat, lon) {
   const status = document.getElementById("status");
   status.textContent = "Querying...";
   clearCharts();
 
   try {
     const res  = await fetch(
-      `${API}/query/wave_surge/point?lat=${selectedLat}&lon=${selectedLon}`
+      `${API}/query/wave_surge/point?lat=${lat}&lon=${lon}`
     );
     const data = await res.json();
     drawWaveSurgeCharts(data);
@@ -496,7 +348,7 @@ async function queryWaveSurge() {
   }
 }
 
-// ── Fragility AST 查詢 ────────────────────────────────────────
+// Query flood/wind/spill/fragility for a particular tank
 async function queryAST(astId) {
   const status = document.getElementById("status");
   status.textContent = "Loading AST data...";
@@ -506,9 +358,9 @@ async function queryAST(astId) {
     const res  = await fetch(`${API}/fragility/ast/${astId}`);
     const data = await res.json();
     console.log("AST data:", JSON.stringify(data)); // ← 加這行
-
-    if (currentMode === "wave_surge") {
-	drawWaveSurgeCharts({"values":data});
+    
+    if (currentMode === "wave") {
+	    drawWaveSurgeCharts({"values":data, "lat": data.lat, "lon": data.lon});
     } else {
       drawFragilityCharts(data);
     }
@@ -518,7 +370,7 @@ async function queryAST(astId) {
   }
 }
 
-// ── Map Range ─────────────────────────────────────────────────
+// Toggle and apply custom map extent
 function toggleRange() {
   document.getElementById("range-inputs").style.display =
     document.getElementById("custom-range").checked ? "block" : "none";
@@ -532,7 +384,7 @@ function applyRange() {
   map.fitBounds([[latMin, lonMin],[latMax, lonMax]]);
 }
 
-// ── 清除圖表 ──────────────────────────────────────────────────
+// Functions for handling charts
 function clearCharts() {
   currentScrollPos = document.getElementById('sidebar').scrollTop;
   charts.forEach(c => c.destroy());
@@ -545,10 +397,9 @@ function drawWaveSurgeCharts(data) {
   const area   = document.getElementById("charts-area");
   const values = data.values;
 
-  
   colors_g1 = ["#0ea5e9","#0284c7","#0369a1"];  // flood
   colors_g2 = ["#8b5cf6","#7c3aed","#6d28d9"];  // surge
-
+  colors_g3 = ["#1d4227","#417d51","#73d18c"];  // wind (if available)
   const groups = [
     {
       title:  "Flood Return Levels (m)",
@@ -560,58 +411,67 @@ function drawWaveSurgeCharts(data) {
       keys:   ["surge100","surge50","surge25","topo"],
       colors: colors_g2,
     },
+    {
+      title:  "Wind Return Levels (m/s)",
+      keys:   ["wind100","wind50","wind25"],
+      colors: colors_g3,
+    },
   ];
 
   const allVals = Object.values(values).filter(v => v !== null);
   const yMax    = allVals.length > 0 ? Math.max(...allVals) * 1.2 : 10;
 
   groups.forEach(g => {
-    const vals        = g.keys.map(k => values[k]);
-    const colors      = g.keys.map((k,i) =>
-      values[k] === null ? "#d1d5db" : g.colors[i % g.colors.length]);
-    const displayVals = vals.map(v => v === null ? 0 : v);
-    const nullCount   = vals.filter(v => v === null).length;
+    try {
+      const vals        = g.keys.map(k => values[k]);
+      const colors      = g.keys.map((k,i) =>
+        values[k] === null ? "#d1d5db" : g.colors[i % g.colors.length]);
+      const displayVals = vals.map(v => v === null ? 0 : v);
+      const nullCount   = vals.filter(v => v === null).length;
 
-    const box = document.createElement("div");
-    box.className = "chart-box";
-    box.innerHTML = `
-      <h4>${g.title}</h4>
-      <small>Lat: ${data.lat} &nbsp; Lon: ${data.lon}</small>
-      <canvas></canvas>
-      ${nullCount > 0
-        ? `<div class="null-warning">⚠ ${nullCount} variable(s) have no data at this location.</div>`
-        : ""}
-    `;
-    area.appendChild(box);
+      const box = document.createElement("div");
+      box.className = "chart-box";
+      box.innerHTML = `
+        <h4>${g.title}</h4>
+        <small>Lat: ${data.lat} &nbsp; Lon: ${data.lon}</small>
+        <canvas></canvas>
+        ${nullCount > 0
+          ? `<div class="null-warning">⚠ ${nullCount} variable(s) have no data at this location.</div>`
+          : ""}
+      `;
+      area.appendChild(box);
 
-    charts.push(new Chart(box.querySelector("canvas"), {
-      type: "bar",
-      data: {
-        labels: g.keys,
-        datasets: [{
-          data:            displayVals,
-          backgroundColor: colors,
-          borderRadius:    5,
-        }]
-      },
-      options: {
-        responsive: true,
-        plugins: {
-          legend: { display:false },
-          tooltip: {
-            callbacks: {
-              label: ctx => {
-                const orig = vals[ctx.dataIndex];
-                return orig === null ? "No data" : `${orig.toFixed(4)} m`;
+      charts.push(new Chart(box.querySelector("canvas"), {
+        type: "bar",
+        data: {
+          labels: g.keys,
+          datasets: [{
+            data:            displayVals,
+            backgroundColor: colors,
+            borderRadius:    5,
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: { display:false },
+            tooltip: {
+              callbacks: {
+                label: ctx => {
+                  const orig = vals[ctx.dataIndex];
+                  return orig === null ? "No data" : `${orig.toFixed(4)} m`;
+                }
               }
             }
+          },
+          scales: {
+            y: { min:0, max:yMax, title:{ display:true, text:"meters" } }
           }
-        },
-        scales: {
-          y: { min:0, max:yMax, title:{ display:true, text:"meters" } }
         }
-      }
-    }));
+      }));
+  } catch(e) {
+    console.log(`failed to load chart: ${e}`);
+  } 
   });
   document.getElementById("sidebar").scrollTop = currentScrollPos;
 }
