@@ -120,9 +120,9 @@
 const API = "https://nas-clim-api-ih6l.onrender.com";
 
 let currentMode = "wave";
-let currentRP   = "100yr";
-let currentShowTanks = false;
+let currentRP   =  null;
 let currentCircle= null; 
+let circleGroups = {"all": []};
 let currentScrollPos = 0;
 let gridMarker      = null;
 let charts      = [];
@@ -130,18 +130,61 @@ let floodLayers = {};
 let astLayer    = null;
 
 
-// ── 地圖 ──────────────────────────────────────────────────────
-const map = L.map("map").fitBounds([
+
+//Leaflet map and styles. I'd normally put styles in the css file, but Leaflet is finicky. 
+const map = L.map("map", {
+  zoom: 10, 
+  minZoom: 10, 
+  maxZoom: 17
+  }
+  ).fitBounds([
   [29.3, -95.5],
   [30.1, -94.5]
 ]);
+let circleStyleDefault = {
+        radius:      5,
+        color:       "#6b0202",
+        fillColor:   "#ad3444",
+        fillOpacity: 0.85,
+        weight:      1.5,
+      };
+      
+let circleStyleSelected = {
+    radius:      9,
+    color:       "#800414",
+    fillColor:   "red",
+    fillOpacity: 0.95,
+    weight:      2.5,
+  }
+  
+let circleStyleUnflooded = {
+  radius:      4,
+  color:       "gray",
+  fillColor:   "darkgray",
+  fillOpacity: 0.6,
+  opacity:     0.6,
+  weight:      .6,
+}
 
-L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+stm = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
   attribution:"© OpenStreetMap"
 }).addTo(map);
 
-// Event listeners
-map.addEventListener("click", mapClick);
+// Floodmap tilesets. Hosted on mappinest because it's free
+floodLayers = {
+  'f25yr': L.tileLayer("https://api.mappinest.com/v1/tiles/sustielz.25yrflood/{z}/{x}/{y}.png?key=df10599d-b326-494d-ab3f-bab6b231c3c0", 
+  {opacity: 0.8, attribution: '(c) Mappinest'}),
+  'f50yr': L.tileLayer("https://api.mappinest.com/v1/tiles/sustielz.50yrflood/{z}/{x}/{y}.png?key=df10599d-b326-494d-ab3f-bab6b231c3c0", 
+  {opacity: 0.8, attribution: '(c) Mappinest'}),
+  'f100yr': L.tileLayer("https://api.mappinest.com/v1/tiles/sustielz.100yrflood/{z}/{x}/{y}.png?key=df10599d-b326-494d-ab3f-bab6b231c3c0", 
+  {opacity: 0.8, attribution: '(c) Mappinest'}),
+  
+  
+}
+
+
+// Event listeners. NOTE: the names of tab elements are important; see setRP and setMODE
+map.addEventListener("click", clickMap);
 document.getElementById("show-tanks"       ).addEventListener("change", toggleAST)
 document.getElementById("map-extent-button").addEventListener("click",  applyRange)
 document.getElementById("custom-range"     ).addEventListener("change", toggleRange)
@@ -158,42 +201,60 @@ document.getElementById("tab-frag"         ).addEventListener("click",  setMode)
 
 
 // Handle map clicks (not tank clicks)
-function mapClick(event) {
+function clickMap(event) {
   // Prevent function from triggering if we're clicking on a tank 
-  if (gridMarker && (Math.abs(event.latlng.lat - gridMarker.getLatLng().lat) < 0.0001)) {  return; }
-  
-  currentCircle = null; 
+  if (currentCircle && (Math.abs(event.latlng.lat - currentCircle.getLatLng().lat) < 0.0001) ) {  return; }
+  if (currentCircle) { currentCircle.setStyle(circleStyleDefault); }
+  currentCircle = null;
   lat = parseFloat(event.latlng.lat.toFixed(4));
   lon = parseFloat(event.latlng.lng.toFixed(4));
   document.getElementById("point-info").innerHTML =
     `Lat: <span>${lat}</span><br>Lon: <span>${lon}</span>`;
-
   if (gridMarker) {   gridMarker.remove(); gridMarker = null; }
   gridMarker = L.marker([lat, lon]).addTo(map);
   queryWaveSurge(lat, lon);
 }
 
-//Handle side-button settings for return period and data type
-async function setRP(event) {
-  tab = event.target
-  rp = tab.id.slice(4);      // All connected buttons have id of form "tab-{rp}"
-  currentRP = rp;
-  if (!(Object.keys(floodLayers).includes(rp))) {   
-    await loadGrid(rp); 
-  } 
-  layer = floodLayers[rp];
-  if (map.hasLayer(layer)) {
-    map.removeLayer(layer);
-  } else {
-    await map.addLayer(layer);
-    if ( (astLayer !== null) && (map.hasLayer(astLayer))) { // Bring AST layer to front 
-      map.removeLayer(astLayer);
-      map.addLayer(astLayer);
-    }
-  }
-  tab.className = (tab.className === `tab active-${rp[0]}rp`) ? "tab" : `tab active-${rp[0]}rp`;
+// Handle tank clicks
+function clickCircle(event) {
+  if (currentCircle) {  currentCircle.setStyle(circleStyleDefault); }
+  if (gridMarker) { gridMarker.remove(); gridMarker = null; }
+  currentCircle = event.target;
+  currentCircle.setStyle(circleStyleSelected);
+  currentCircle.remove();
+  currentCircle.addTo(map);
+  document.getElementById("point-info").innerHTML = currentCircle.info;
+  queryAST(currentCircle.ast_id);
 }
 
+// Handle side-buttons for setting return period
+async function setRP(event) {
+  tab = event.target
+  rp = tab.id.slice(4);                            // All connected buttons have id of form "tab-{rp}"
+  Object.values(floodLayers).forEach(layer => {    // Remove all flood layers
+      if (map.hasLayer(layer)) {  map.removeLayer(layer);
+  } });
+  [25, 50, 100].forEach( yr => {                   // Unhighlight all buttons
+    ['f', 's'].forEach(     c => {
+      document.getElementById(`tab-${c}${yr}yr`).className = 'tab';
+    });
+  });
+  
+  if (rp === currentRP) {  
+      rp = null;
+  } else {
+      tab.className = `tab active-${rp[0]}rp`;
+      map.addLayer(floodLayers[rp]);
+      if ( (astLayer !== null) && (map.hasLayer(astLayer))) { 
+        map.removeLayer(astLayer); // Bring AST layer to front 
+        map.addLayer(astLayer);
+      }
+  }
+  currentRP = rp;  
+  if (astLayer) {  updateCircles(); }
+}
+
+// Handle side-buttons for setting chart data type
 function setMode(event) {
   mode = event.target.id.slice(4);  // All connected buttons have id of form "tab-{mode}"
   currentMode = mode;
@@ -208,47 +269,18 @@ function setMode(event) {
   document.getElementById("point-info").textContent = "No location selected yet.";
   document.getElementById("status").textContent = "";
   
-  if (currentCircle !== null) { currentCircle.fire('click');}
+  if (currentCircle) { currentCircle.fire('click');}
+  updateCircles();
 }
 
-
-// Load gridded data
-async function loadGrid(rp) {
-  document.getElementById("status").textContent = "Loading hazard extent...";
-  try {
-    rp_mode = rp[0];
-    rp_key = rp.slice(1);
-    const res  = await fetch(`${API}/query/wave_surge/grid?downsample=5&check_rp=${rp_key}`);
-    const data = await res.json();
-
-    gridLayer = L.layerGroup();
-
-    const lons    = data.lons;
-    const lats    = data.lats;
-    const hasData = data.has_data;
-    const dLon    = lons.length > 1 ? Math.abs(lons[1]-lons[0]) : 0.03;
-    const dLat    = lats.length > 1 ? Math.abs(lats[1]-lats[0]) : 0.03;
-
-    for (let i = 0; i < lons.length; i++) {
-      for (let j = 0; j < lats.length; j++) {
-        if (!hasData[i][j]) continue;
-        L.rectangle([
-          [lats[j]-dLat/2, lons[i]-dLon/2],
-          [lats[j]+dLat/2, lons[i]+dLon/2],
-        ], {
-          color:"transparent",
-          color:"#0f48f5",
-          fillColor:"#0f48f5",
-          fillOpacity:0.45,
-          weight:0,
-        }).addTo(gridLayer);
-      }
-    }
-    document.getElementById("status").textContent = "Click on the shaded area to query."; 
-    floodLayers[rp] = gridLayer; 
-  } catch(e) {
-    document.getElementById("status").textContent = `Failed to load coverage: ${e.message}`;
-  }  
+// Update circle markers to highlight tanks within the selected flood extent 
+function updateCircles() {
+  astLayer.eachLayer((circle) => {   circle.setStyle(circleStyleDefault); });
+  if (currentRP) { 
+    astLayer.eachLayer((circle) => { 
+      (circle[currentRP.slice(1)] > 0) ? circle.bringToFront() : circle.setStyle(circleStyleUnflooded);
+    });
+  }
 }
 
 // Load tank data
@@ -257,6 +289,7 @@ async function loadASTPoints() {
   try {
     const res  = await fetch(`${API}/fragility/points`);
     const data = await res.json();
+    
     if (astLayer) {
       astLayer.clearLayers();
     } else {
@@ -264,52 +297,25 @@ async function loadASTPoints() {
     }
 
     data.points.forEach(pt => {
-      const circle = L.circleMarker([pt.lat, pt.lon], {
-        radius:      5,
-        color:       "#6b0202",
-        fillColor:   "#ad3444",
-        fillOpacity: 0.85,
-        weight:      1.5,
-      }).addTo(astLayer);
-
-      circle.on("click", () => {
-	     currentCircle = circle;
-	     document.getElementById("point-info").innerHTML =
-              `<div class="ast-info">
-                <b>AST ID:</b> ${pt.ast_id}<br>
-                <b>Type:</b> ${pt.type}<br>
-                <b>Height:</b> ${pt.height} m<br>
-                <b>Lat:</b> ${pt.lat} &nbsp; <b>Lon:</b> ${pt.lon}<br>
-              </div>`;
-        queryAST(pt.ast_id);
-		
-  	if (gridMarker) { gridMarker.remove(); gridMarker = null; }
+      const circle = L.circleMarker([pt.lat, pt.lon], circleStyleDefault).addTo(astLayer);
+      circle.addEventListener("click", clickCircle);
+      circle.ast_id   = pt.ast_id
+      circle["25yr"]  = pt.flood25;
+      circle["50yr"]  = pt.flood50;
+      circle["100yr"] = pt.flood100;
       
-
-        gridMarker =  L.circleMarker([pt.lat, pt.lon], {
-          radius:      9,
-          color:       "#800414",
-          fillColor:   "red",
-          fillOpacity: 0.95,
-          weight:      2.5,
-        }).addTo(map);
-      });
-
       circle.bindTooltip(
         `AST ${pt.ast_id} | ${pt.type}`,
         { permanent:false, direction:"top", offset:[0,-5] }
       );
     });
-
     document.getElementById("status").textContent =
       `${data.count} ASTs loaded. Click a circle to view charts.`;
-
   } catch(e) {
     document.getElementById("status").textContent =
       `Failed to load ASTs: ${e.message}`;
   }
 }
-
 
 // Toggle AST layer on and off
 async function toggleAST() {
@@ -324,8 +330,8 @@ async function toggleAST() {
   	    if (gridMarker) { gridMarker.remove(); gridMarker = null; }
     }
   }
+  updateCircles();
 }
-
 
 
 
@@ -334,7 +340,6 @@ async function queryWaveSurge(lat, lon) {
   const status = document.getElementById("status");
   status.textContent = "Querying...";
   clearCharts();
-
   try {
     const res  = await fetch(
       `${API}/query/wave_surge/point?lat=${lat}&lon=${lon}`
@@ -357,8 +362,7 @@ async function queryAST(astId) {
   try {
     const res  = await fetch(`${API}/fragility/ast/${astId}`);
     const data = await res.json();
-    console.log("AST data:", JSON.stringify(data)); // ← 加這行
-    
+    console.log("AST data:", JSON.stringify(data)); 
     if (currentMode === "wave") {
 	    drawWaveSurgeCharts({"values":data, "lat": data.lat, "lon": data.lon});
     } else {
