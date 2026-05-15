@@ -12,7 +12,7 @@
 
 
 <div id="sidebar">
-  <h2>NAS Climate Visualizer</h2>
+  <h2>HSC Climate Hazards Dashboard</h2>
 
   <!-- Floodplains and Map Options -->
   <div class="section">
@@ -82,10 +82,10 @@
   <div class="section">
     <div class="section-title">Chart Data Type</div>
     <div class="tab-group">
-      <button class="tab active-wave" id="tab-wave"> Storm Surge </button>
+      <button class="tab active-wave" id="tab-wave"> Flood </button>
       <button class="tab disabled" id="tab-wind"> Wind </button>
-      <button class="tab disabled" id="tab-rain"> Precipitation </button>
-      <button class="tab" id="tab-frag"> Fragility </button>
+      <button class="tab disabled" id="tab-rain"> Rain </button>
+      <button class="tab" id="tab-frag"> Spill </button>
     </div>
   </div>
 
@@ -108,7 +108,33 @@
     <div id="point-info"> No location selected yet.</div>
   </div>
   <div id="status"></div>
-  <div id="charts-area"></div>
+  <div id="charts-area">
+    <div id="chartbox-flood" class="chart-box"> 
+      <h4> Return Flood Depth (m) </h4>
+      <small id="chartboxtag-flood"></small>
+      <canvas></canvas>
+    </div>
+    <div id="chartbox-surge" class="chart-box"> 
+      <h4> Return Surge Height (m) </h4>
+      <small id="chartboxtag-surge"></small>
+      <canvas></canvas>
+    </div>
+    <div id="chartbox-wind" class="chart-box"> 
+        <h4> Return Windspeed (m/s) </h4>
+        <small id="chartboxtag-wind"></small>
+        <canvas></canvas>
+    </div>
+    <div id="chartbox-pf" class="chart-box"> 
+      <h4> Tank Failure Probability </h4>
+      <small id="chartboxtag-pf"></small>
+      <canvas></canvas>
+    </div>
+    <div id="chartbox-sv" class="chart-box"> 
+      <h4> Expected Spill Volume </h4>
+      <small id="chartboxtag-sv"></small>
+      <canvas></canvas>
+    </div>
+  </div>
 </div>
 
 
@@ -122,10 +148,9 @@ const API = "https://nas-clim-api-ih6l.onrender.com";
 let currentMode = "wave";
 let currentRP   =  null;
 let currentCircle= null; 
-let circleGroups = {"all": []};
 let currentScrollPos = 0;
 let gridMarker      = null;
-let charts      = [];
+let charts      = {};
 let floodLayers = {};
 let astLayer    = null;
 
@@ -209,8 +234,7 @@ document.getElementById("tab-frag"         ).addEventListener("click",  setMode)
 
 // Handle map clicks (not tank clicks)
 function clickMap(event) {
-  // Prevent function from triggering if we're clicking on a tank 
-  if (currentCircle && (Math.abs(event.latlng.lat - currentCircle.getLatLng().lat) < 0.0001) ) {  return; }
+  if (currentMode === 'frag') { return;}
   if (currentCircle) { currentCircle.setStyle(circleStyleDefault); }
   currentCircle = null;
   lat = parseFloat(event.latlng.lat.toFixed(4));
@@ -224,13 +248,16 @@ function clickMap(event) {
 
 // Handle tank clicks
 function clickCircle(event) {
-  if (currentCircle) {  currentCircle.setStyle(circleStyleDefault); }
+  L.DomEvent.stopPropagation(event); // Prevent double-clicking on the map
+  if (currentCircle) {  
+    currentCircle.setStyle(circleStyleDefault); 
+    if (currentCircle.ast_id === event.target.ast_id) {  currentCircle=null; return; }
+  }
   if (gridMarker) { gridMarker.remove(); gridMarker = null; }
   currentCircle = event.target;
   currentCircle.setStyle(circleStyleSelected);
   currentCircle.remove();
   currentCircle.addTo(map);
-  document.getElementById("point-info").innerHTML = currentCircle.info;
   queryAST(currentCircle.ast_id);
 }
 
@@ -273,12 +300,14 @@ function setMode(event) {
   } else {
     document.getElementById("tab-frag").className = "tab active-frag";
   }
-  clearCharts();
+  Object.values(document.getElementById("charts-area").children).forEach(box => {
+    box.style.display="none";
+  });
   document.getElementById("point-info").textContent = "No location selected yet.";
   document.getElementById("status").textContent = "";
   
   if (currentCircle) { currentCircle.fire('click');}
-  updateCircles();
+  if (astLayer) {  updateCircles(); }
 }
 
 // Update circle markers to highlight tanks within the selected flood extent 
@@ -289,6 +318,7 @@ function updateCircles() {
       (circle[currentRP.slice(1)] > 0) ? circle.bringToFront() : circle.setStyle(circleStyleUnflooded);
     });
   }
+  if (currentCircle) {   currentCircle.setStyle(circleStyleSelected); }
 }
 
 // Load tank data
@@ -348,13 +378,12 @@ async function toggleAST() {
 async function queryWaveSurge(lat, lon) {
   const status = document.getElementById("status");
   status.textContent = "Querying...";
-  clearCharts();
   try {
     const res  = await fetch(
       `${API}/query/wave_surge/point?lat=${lat}&lon=${lon}`
     );
     const data = await res.json();
-    drawWaveSurgeCharts(data);
+    updateSurgeCharts(data);
     status.textContent = "Done. Click another location to update.";
   
   } catch(e) {
@@ -363,21 +392,28 @@ async function queryWaveSurge(lat, lon) {
 }
 
 // Query flood/wind/spill/fragility for a particular tank
-async function queryAST(astId) {
+async function queryAST(ast_id) {
   const status = document.getElementById("status");
   status.textContent = "Loading AST data...";
-  clearCharts();
+  //clearCharts();
 	
   try {
-    const res  = await fetch(`${API}/fragility/ast/${astId}`);
+    const res  = await fetch(`${API}/fragility/ast/${ast_id}`);
     const data = await res.json();
     console.log("AST data:", JSON.stringify(data)); 
     if (currentMode === "wave") {
-	    drawWaveSurgeCharts({"values":data, "lat": data.lat, "lon": data.lon});
+	    updateSurgeCharts({"values":data, "lat": data.lat, "lon": data.lon});
     } else {
-      drawFragilityCharts(data);
+      updateFragilityCharts(data);
     }
-    status.textContent = `AST ${astId} — Click another tank to update.`;
+    document.getElementById("point-info").innerHTML =  
+          `<div class="ast-info">
+            <b>AST ID:</b> ${ast_id}<br>
+            <b>Type:</b> ${data.type}<br>
+            <b>Height:</b> ${data.height} m<br>
+            <b>Lat:</b> ${data.lat} &nbsp; <b>Lon:</b> ${data.lon}
+          </div>`;
+    status.textContent = `AST ${ast_id} — Click another tank to update.`;
   } catch(e) {
     status.textContent = `Error: ${e.message}`;
   }
@@ -397,73 +433,59 @@ function applyRange() {
   map.fitBounds([[latMin, lonMin],[latMax, lonMax]]);
 }
 
-// Functions for handling charts
-function clearCharts() {
-  currentScrollPos = document.getElementById('sidebar').scrollTop;
-  charts.forEach(c => c.destroy());
-  charts = [];
-  document.getElementById("charts-area").innerHTML = "";
-}
 
 // ── Wave Surge Bar Charts ─────────────────────────────────────
-function drawWaveSurgeCharts(data) {
-  const area   = document.getElementById("charts-area");
-  const values = data.values;
-
-  colors_g1 = ["#0ea5e9","#0284c7","#0369a1"];  // flood
-  colors_g2 = ["#8b5cf6","#7c3aed","#6d28d9"];  // surge
-  colors_g3 = ["#1d4227","#417d51","#73d18c"];  // wind (if available)
+function initCharts() {
   const groups = [
     {
-      title:  "Flood Return Levels (m)",
-      keys:   ["flood100","flood50","flood25"],
-      colors: colors_g1,
+      chartID: 'flood',
+      labels: ['100-year', '50-year', '25-year'],
+      ylabel: 'meters',
+      colors: ["#0ea5e9","#0284c7","#0369a1"],
       yMax: 4.0,
     },
     {
-      title:  "Surge Return Levels & Topography (m)",
-      keys:   ["surge100","surge50","surge25","topo"],
-      colors: colors_g2,
+      chartID: 'surge',
+      labels: ['100-year', '50-year', '25-year'],
+      ylabel: 'meters',
+      colors: ["#8b5cf6","#7c3aed","#6d28d9"],
       yMax: 6.0,
     },
     {
-      title:  "Wind Return Levels (m/s)",
-      keys:   ["wind100","wind50","wind25"],
-      colors: colors_g3,
+      chartID: 'wind',
+      labels: ['100-year', '50-year', '25-year'],
+      ylabel: 'meters/second',
+      colors: ["#1d4227","#417d51","#73d18c"],
       yMax: 50.0,
     },
+    {
+      chartID: 'pf',
+      labels:   ["Mean ± 1.5 STD"],
+      ylabel: 'probability (0 - 1)',
+      colors: ["#ef444488"],
+      yMax: 1.0,
+    },
+    {
+      chartID: 'sv',
+      labels:   ["Mean ± 1.5 STD"],
+      ylabel: 'cubic meters',
+      colors: ["#f9731688"],
+      yMax: 100.0,
+    },
   ];
-
-  const allVals = Object.values(values).filter(v => v !== null);
-//  const yMax    = allVals.length > 0 ? Math.max(...allVals) * 1.2 : 10;
-
+  
   groups.forEach(g => {
+    box = document.getElementById(`chartbox-${g.chartID}`);
+    chart = charts[g.chartID];
     try {
-      const vals        = g.keys.map(k => values[k]);
-      const colors      = g.keys.map((k,i) =>
-        values[k] === null ? "#d1d5db" : g.colors[i % g.colors.length]);
-      const displayVals = vals.map(v => v === null ? 0 : v);
-      const nullCount   = vals.filter(v => v === null).length;
-
-      const box = document.createElement("div");
-      box.className = "chart-box";
-      box.innerHTML = `
-        <h4>${g.title}</h4>
-        <small>Lat: ${data.lat} &nbsp; Lon: ${data.lon}</small>
-        <canvas></canvas>
-        ${nullCount > 0
-          ? `<div class="null-warning">⚠ ${nullCount} variable(s) have no data at this location.</div>`
-          : ""}
-      `;
-      area.appendChild(box);
-
-      charts.push(new Chart(box.querySelector("canvas"), {
+      charts[g.chartID] = new Chart(box.querySelector("canvas"), {
         type: "bar",
         data: {
-          labels: g.keys,
+          labels: g.labels,
           datasets: [{
-            data:            displayVals,
-            backgroundColor: colors,
+            data:            [],
+            backgroundColor: g.colors,
+            borderColor:     "black",
             borderRadius:    5,
           }]
         },
@@ -471,192 +493,110 @@ function drawWaveSurgeCharts(data) {
           responsive: true,
           plugins: {
             legend: { display:false },
-            tooltip: {
-              callbacks: {
-                label: ctx => {
-                  const orig = vals[ctx.dataIndex];
-                  return orig === null ? "No data" : `${orig.toFixed(4)} m`;
-                }
-              }
+            errorBar: {
+              qMean: 0,
+              qErr: 0,
             }
           },
           scales: {
-            y: { min:0, max:g.yMax, title:{ display:true, text:"meters" } }
+            y: { min:0, max:g.yMax, title:{ display:true, text:g.ylabel } }
           }
-        }
-      }));
-  } catch(e) {
-    console.log(`failed to load chart: ${e}`);
-  } 
+        },
+        plugins: [myErrorBarPlugin]
+      });
+
+    } catch(e) {
+      console.log(`failed to load chart: ${e}`);
+    } 
   });
-  document.getElementById("sidebar").scrollTop = currentScrollPos;
+  charts['flood'].options.plugins.errorBar = false;
+  charts['surge'].options.plugins.errorBar = false;
+  charts['wind'].options.plugins.errorBar = false;
 }
 
-// ── Fragility Bar Charts with Error Bars ─────────────────────
-function drawFragilityCharts(data) {
-  const area = document.getElementById("charts-area");
-  const STD  = 1.5;
 
-  // Chart 1: Pf_System_ (Failure Probability)
-  const pfMean = data.pf.mean;
-  const pfErr  = data.pf.std * STD;
-
-  const box1 = document.createElement("div");
-  box1.className = "chart-box";
-  box1.innerHTML = `
-    <h4>Failure Probability (Pf_System_)</h4>
-    <small>AST ${data.ast_id} | ${data.type} | Height: ${data.height} m</small>
-    <canvas id="chart-pf"></canvas>
-  `;
-  area.appendChild(box1);
-
-  charts.push(new Chart(box1.querySelector("canvas"), {
-    type: "bar",
-    data: {
-      labels: ["Pf_System_"],
-      datasets: [{
-        label:           "Mean ± 1.5 STD",
-        data:            [pfMean],
-        backgroundColor: "#ef444488",
-        borderColor:     "#ef4444",
-        borderWidth:     2,
-        borderRadius:    5,
-        // error bar 用 custom plugin 模擬
-      }]
-    },
-    options: {
-      responsive: true,
-      plugins: {
-        legend: { display:false },
-        tooltip: {
-          callbacks: {
-            label: () =>
-              `Mean: ${pfMean.toFixed(4)} | ±1.5σ: [${Math.max(0,pfMean-pfErr).toFixed(4)}, ${Math.min(1,pfMean+pfErr).toFixed(4)}]`
-          }
-        }
-      },
-      scales: {
-        y: {
-          min:   0,
-          max:   1,
-          title: { display:true, text:"Failure Probability (0–1)" }
-        }
-      }
-    },
-    plugins: [{
-      id: "errorBar",
-      afterDatasetsDraw(chart) {
-        const ctx = chart.ctx;
-        const meta = chart.getDatasetMeta(0);
-        const bar  = meta.data[0];
-        const x    = bar.x;
-        const yTop    = chart.scales.y.getPixelForValue(Math.min(1, pfMean + pfErr));
-        const yBottom = chart.scales.y.getPixelForValue(Math.max(0, pfMean - pfErr));
-        const yMid    = chart.scales.y.getPixelForValue(pfMean);
-
-        ctx.save();
-        ctx.strokeStyle = "#b91c1c";
-        ctx.lineWidth   = 2;
-
-        // 垂直線
-        ctx.beginPath();
-        ctx.moveTo(x, yTop);
-        ctx.lineTo(x, yBottom);
-        ctx.stroke();
-
-        // 上下横線
-        [-1, 1].forEach(dir => {
-          const y = dir === 1 ? yTop : yBottom;
-          ctx.beginPath();
-          ctx.moveTo(x - 8, y);
-          ctx.lineTo(x + 8, y);
-          ctx.stroke();
-        });
-
-        ctx.restore();
-
-      }
-    }]
-  }));
-
-  // Chart 2: Spill_Volume_
-  const svMean = data.sv.mean;
-  const svErr  = data.sv.std * STD;
-
-  const box2 = document.createElement("div");
-  box2.className = "chart-box";
-  box2.innerHTML = `
-    <h4>Spill Volume (Spill_Volume_)</h4>
-    <small>AST ${data.ast_id} | ${data.type} | Height: ${data.height} m</small>
-    <canvas id="chart-sv"></canvas>
-  `;
-  area.appendChild(box2);
-
-  charts.push(new Chart(box2.querySelector("canvas"), {
-    type: "bar",
-    data: {
-      labels: ["Spill_Volume_"],
-      datasets: [{
-        label:           "Mean ± 1.5 STD",
-        data:            [svMean],
-        backgroundColor: "#f9731688",
-        borderColor:     "#f97316",
-        borderWidth:     2,
-        borderRadius:    5,
-      }]
-    },
-    options: {
-      responsive: true,
-      plugins: {
-        legend: { display:false },
-        tooltip: {
-          callbacks: {
-            label: () =>
-              `Mean: ${svMean.toFixed(2)} | ±1.5σ: [${Math.max(0,svMean-svErr).toFixed(2)}, ${(svMean+svErr).toFixed(2)}]`
-          }
-        }
-      },
-      scales: {
-        y: {
-          min:   0,
-          max:   Math.ceil((svMean + svErr) * 1.2) || 100,
-          title: { display:true, text:"Spill Volume" }
-        }
-      }
-    },
-    plugins: [{
-      id: "errorBar",
-      afterDatasetsDraw(chart) {
-        const ctx  = chart.ctx;
-        const meta = chart.getDatasetMeta(0);
-        const bar  = meta.data[0];
-        const x    = bar.x;
-        const yTop    = chart.scales.y.getPixelForValue(svMean + svErr);
-        const yBottom = chart.scales.y.getPixelForValue(Math.max(0, svMean - svErr));
-
-        ctx.save();
-        ctx.strokeStyle = "#c2410c";
-        ctx.lineWidth   = 2;
-
-        ctx.beginPath();
-        ctx.moveTo(x, yTop);
-        ctx.lineTo(x, yBottom);
-        ctx.stroke();
-
-        [-1, 1].forEach(dir => {
-          const y = dir === 1 ? yTop : yBottom;
-          ctx.beginPath();
-          ctx.moveTo(x - 8, y);
-          ctx.lineTo(x + 8, y);
-          ctx.stroke();
-        });
-
-        ctx.restore();
-      }
-    }]
-  }));
-  document.getElementById("sidebar").scrollTop = currentScrollPos;
+function updateSurgeCharts(data) { 
+  if ( !Object.keys(charts).includes('flood') ) {  initCharts(); }
+  const values = data.values;
+  
+  ['flood', 'surge', 'wind'].forEach(chartID => {
+    document.getElementById(`chartbox-${chartID}`).style.display = 'block';
+    chart = charts[chartID];
+    
+    const keys = ['100', '50', '25'].map(yr => chartID + yr);
+    const vals = keys.map(k => values[k]);
+    const displayVals = vals.map(v => v === null ? 0 : v);
+    const nullCount   = vals.filter(v => v === null).length;
+    chart.data.datasets.forEach(ds => {
+      ds.data = [];
+      displayVals.forEach(v => { ds.data.push(v); });
+      chart.options.plugins.tooltip.callbacks.label = ctx => {   
+          const orig = vals[ctx.dataIndex];
+          return orig === null ? "No data" : `${orig.toFixed(4)} m`;
+      };
+    });
+    chart.update();
+  });
 }
+
+
+//Mostly the same as above, except different charts and different vals
+function updateFragilityCharts(data) { 
+  if ( !Object.keys(charts).includes('pf') ) {  initCharts(); }
+  const STD = 1.5;
+  ['pf', 'sv'].forEach(chartID => {
+    document.getElementById(`chartbox-${chartID}`).style.display = 'block';
+    chart = charts[chartID];
+    qMean = data[chartID].mean;
+    qErr = data[chartID].std * STD;
+    displayVals = [qMean];
+    chart.data.datasets.forEach(ds => {
+      ds.data = [];
+      displayVals.forEach(v => { ds.data.push(v); });
+      chart.options.plugins.tooltip.callbacks.label = () => {
+              `Mean: ${qMean.toFixed(4)} | ±1.5σ: [${Math.max(0,qMean-qErr).toFixed(4)}, ${Math.min(1,qMean+qErr).toFixed(4)}]`;} ;
+      });
+    chart.options.plugins.errorBar.qMean=qMean;
+    chart.options.plugins.errorBar.qErr = qErr;
+    chart.update();
+  });
+}
+
+const myErrorBarPlugin = {
+  id: "errorBar",
+  afterDatasetsDraw: (chart, args, options) => {
+    console.log('plugin start');
+    const ctx  = chart.ctx;
+    const meta = chart.getDatasetMeta(0);
+    const bar  = meta.data[0];
+    const x    = bar.x;
+    qMean = chart.options.plugins.errorBar.qMean;
+    qErr = chart.options.plugins.errorBar.qErr;
+    const yTop    = chart.scales.y.getPixelForValue(qMean + qErr);
+    const yBottom = chart.scales.y.getPixelForValue(Math.max(0, qMean - qErr));
+    console.log(options.qErr);
+    ctx.save();
+    ctx.strokeStyle = "#c2410c";
+    ctx.lineWidth   = 2;
+
+    ctx.beginPath();
+    ctx.moveTo(x, yTop);
+    ctx.lineTo(x, yBottom);
+    ctx.stroke();
+
+    [-1, 1].forEach(dir => {
+      const y = dir === 1 ? yTop : yBottom;
+      ctx.beginPath();
+      ctx.moveTo(x - 8, y);
+      ctx.lineTo(x + 8, y);
+      ctx.stroke();
+      
+    });
+    ctx.restore();
+    console.log('plugin fin');
+  }
+};
+  
 </script>
 </body>
 </html>
