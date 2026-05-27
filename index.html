@@ -361,7 +361,7 @@ function drawPrecipChart(gateId) {
   const gateIdx = parseInt(gateId.replace("gate","")) - 1;
   const src     = ctrlModel === "dynamic" ? PRD : PRS;
   const prefix  = ctrlModel === "dynamic" ? "prD" : "prS";
-  const modelLabel  = ctrlModel === "dynamic" ? "Dynamic (prD)" : "Statistical (prS)";
+  const modelLabel  = ctrlModel === "dynamic" ? "Dynamic" : "Statistical";
   const periodLabel = ctrlPeriod === "2030_2060" ? "2030–2060" : "2070–2100";
   const tcLabel     = {all:"All TCs", minor:"Minor TCs", major:"Major TCs"}[ctrlTc];
 
@@ -434,7 +434,10 @@ function drawPrecipChart(gateId) {
           y:{
             min: yMin, max: yMax,
             title:{display:true, text:"CCdelta (%)"},
-            grid:{color:"#e5e7eb"},
+            grid:{
+              color: ctx => ctx.tick.value === 0 ? "#374151" : "#e5e7eb",
+              lineWidth: ctx => ctx.tick.value === 0 ? 2.5 : 1,
+            },
             ticks:{callback: v => v.toFixed(0)+"%"}
           },
           x:{ grid:{display:false} }
