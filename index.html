@@ -6,6 +6,7 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
   <link rel="stylesheet" href="./index.css"/>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
 
@@ -20,8 +21,9 @@
       <div id="hint-wave" class="hint">
 	      <div class="section">
 	        <div class="hint-body">
-          	  <b> Purple shaded areas </b> illustrate the expected flood for each return period. Color varies from 0m (lightest) to 4m (darkest).          	  <br><br>
-              <b>Click anywhere on the shaded area</b> to view flood and surge return level appState.charts.
+          	  <b>Light blue shaded areas</b> indicate locations where surge or flood data is available.
+          	  <br><br>
+              <b>Click anywhere on the shaded area</b> to view flood and surge return level charts.
           </div>
         </div>
       </div>
@@ -37,20 +39,14 @@
       <div class="hint-button"> ? </div>
       <div id="hint-frag" class="hint" >
         <div class="section">
-          <div class="hint-body"> 
-          <b> Orange shaded areas </b> indicate the average spill extent observed over a handful of storms. Color ranges from 0 cubic meters (lightest) to 100 cubic meters (darkest). Note that expected spill volume is much greater than 100 cubic meters in some places.
-          <br>
-          Actual spill estimates vary from storm to storm, and each tank's fragility and expected spill volume are both highly dependent on the tank's contents at the time of landfall. Click on tanks to view fragility estimates and expected spill volume ranges.
-          <br> 
-          Click on the map to see probabilities of spill volumes in that location, and to view which tanks potential spill originates from. 
-          </div>
+          <div class="hint-body"> </div>
         </div>
       </div>
     </div>
     <div class="tab-group">
       <button class="tab disabled" id="tab-s25yr"> 25-year </button>
       <button class="tab disabled" id="tab-s50yr"> 50-year </button>
-      <button class="tab year" id="tab-s100yr"> 100-year </button>
+      <button class="tab disabled" id="tab-s100yr"> 100-year </button>
     </div>
   </div>
   <div class="check-row">                                          
@@ -82,7 +78,7 @@
 
 
 
-  <!-- Datasets and appState.charts -->
+  <!-- Datasets and Charts -->
   <div class="section">
     <div class="section-title">Chart Data Type</div>
     <div class="tab-group">
@@ -102,7 +98,7 @@
 	        <div class="hint-body">
 	          <b>Dark blue circles</b> represent Above-ground Storage Tanks (AST).
 	          <br><br>
-            <b>Click on a circle</b> to view the failure probability and spill volume appState.charts for that tank.
+            <b>Click on a circle</b> to view the failure probability and spill volume charts for that tank.
             <br><br>
             <b>Error bars</b> show ± 1.5 standard deviations from 1000 Monte Carlo samples.
 	        </div>
@@ -112,7 +108,7 @@
     <div id="point-info"> No location selected yet.</div>
   </div>
   <div id="status"></div>
-  <div id="appState.charts-area">
+  <div id="charts-area">
     <div id="chartbox-flood" class="chart-box"> 
       <h4> Return Flood Depth (m) </h4>
       <small id="chartboxtag-flood"></small>
@@ -144,7 +140,463 @@
 
 <div id="map"></div>
 
-</body>
 
-<script type="module" src="./src/app.js"></script>
+<script>
+// const API = "https://nas-clim-api.onrender.com"; 
+const API = "https://nas-clim-api-ih6l.onrender.com";
+
+let currentMode = "wave";
+let currentRP   =  null;
+let currentCircle= null; 
+let currentScrollPos = 0;
+let gridMarker      = null;
+let charts      = {};
+let floodLayers = {};
+let astLayer    = null;
+
+
+
+//Leaflet map and styles. I'd normally put styles in the css file, but Leaflet is finicky. 
+const map = L.map("map", {
+  zoom: 10, 
+  minZoom: 10, 
+  maxZoom: 17
+  }
+  ).fitBounds([
+  [29.3, -95.5],
+  [30.1, -94.5]
+]);
+let circleStyleDefault = {
+        radius:      5,
+        color:       "#6b0202",
+        fillColor:   "#ad3444",
+        fillOpacity: 0.85,
+        weight:      1.5,
+      };
+      
+let circleStyleSelected = {
+    radius:      9,
+    color:       "#800414",
+    fillColor:   "red",
+    fillOpacity: 0.95,
+    weight:      2.5,
+  }
+  
+let circleStyleUnflooded = {
+  radius:      4,
+  color:       "gray",
+  fillColor:   "darkgray",
+  fillOpacity: 0.6,
+  opacity:     0.6,
+  weight:      .6,
+}
+
+stm = L.tileLayer("https://cartodb-basemaps-b.global.ssl.fastly.net/light_nolabels/{z}/{x}/{y}.png", {
+  attribution:"© Stamen"
+}).addTo(map);
+
+
+//stm = L.tileLayer("https://tiles.stadiamaps.com/tiles/stamen_toner-lite/{z}/{x}/{y}.png", {
+//  attribution:"© Stamen"
+//}).addTo(map);
+
+//stm = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+//  attribution:"© OpenStreetMap"
+//}).addTo(map);
+
+// Floodmap tilesets. Hosted on mappinest because it's free
+floodLayers = {
+  'f25yr': L.tileLayer("https://api.mappinest.com/v1/tiles/sustielz.25yrflood/{z}/{x}/{y}.png?key=df10599d-b326-494d-ab3f-bab6b231c3c0", 
+  {opacity: 0.8, attribution: '(c) Mappinest'}),
+  'f50yr': L.tileLayer("https://api.mappinest.com/v1/tiles/sustielz.50yrflood/{z}/{x}/{y}.png?key=df10599d-b326-494d-ab3f-bab6b231c3c0", 
+  {opacity: 0.8, attribution: '(c) Mappinest'}),
+  'f100yr': L.tileLayer("https://api.mappinest.com/v1/tiles/sustielz.100yrflood/{z}/{x}/{y}.png?key=df10599d-b326-494d-ab3f-bab6b231c3c0", 
+  {opacity: 0.8, attribution: '(c) Mappinest'}), 
+}
+
+
+// Event listeners. NOTE: the names of tab elements are important; see setRP and setMODE
+map.addEventListener("click", clickMap);
+document.getElementById("show-tanks"       ).addEventListener("change", toggleAST)
+document.getElementById("map-extent-button").addEventListener("click",  applyRange)
+document.getElementById("custom-range"     ).addEventListener("change", toggleRange)
+document.getElementById("tab-f25yr"        ).addEventListener("click",  setRP); 
+document.getElementById("tab-f50yr"        ).addEventListener("click",  setRP); 
+document.getElementById("tab-f100yr"       ).addEventListener("click",  setRP); 
+document.getElementById("tab-s25yr"        ).addEventListener("click",  setRP); 
+document.getElementById("tab-s50yr"        ).addEventListener("click",  setRP); 
+document.getElementById("tab-s100yr"       ).addEventListener("click",  setRP); 
+document.getElementById("tab-wave"         ).addEventListener("click",  setMode); 
+document.getElementById("tab-wind"         ).addEventListener("click",  setMode); 
+document.getElementById("tab-rain"         ).addEventListener("click",  setMode); 
+document.getElementById("tab-frag"         ).addEventListener("click",  setMode); 
+
+
+// Handle map clicks (not tank clicks)
+function clickMap(event) {
+  if (currentMode === 'frag') { return;}
+  if (currentCircle) { currentCircle.setStyle(circleStyleDefault); }
+  currentCircle = null;
+  lat = parseFloat(event.latlng.lat.toFixed(4));
+  lon = parseFloat(event.latlng.lng.toFixed(4));
+  document.getElementById("point-info").innerHTML =
+    `Lat: <span>${lat}</span><br>Lon: <span>${lon}</span>`;
+  if (gridMarker) {   gridMarker.remove(); gridMarker = null; }
+  gridMarker = L.marker([lat, lon]).addTo(map);
+  queryWaveSurge(lat, lon);
+}
+
+// Handle tank clicks
+function clickCircle(event) {
+  L.DomEvent.stopPropagation(event); // Prevent double-clicking on the map
+  if (currentCircle) {  
+    currentCircle.setStyle(circleStyleDefault); 
+    if (currentCircle.ast_id === event.target.ast_id) {  currentCircle=null; return; }
+  }
+  if (gridMarker) { gridMarker.remove(); gridMarker = null; }
+  currentCircle = event.target;
+  currentCircle.setStyle(circleStyleSelected);
+  currentCircle.remove();
+  currentCircle.addTo(map);
+  queryAST(currentCircle.ast_id);
+}
+
+// Handle side-buttons for setting return period
+async function setRP(event) {
+  tab = event.target
+  rp = tab.id.slice(4);                            // All connected buttons have id of form "tab-{rp}"
+  Object.values(floodLayers).forEach(layer => {    // Remove all flood layers
+      if (map.hasLayer(layer)) {  map.removeLayer(layer);
+  } });
+  [25, 50, 100].forEach( yr => {                   // Unhighlight all buttons
+    ['f', 's'].forEach(     c => {
+      document.getElementById(`tab-${c}${yr}yr`).className = 'tab';
+    });
+  });
+  
+  if (rp === currentRP) {  
+      rp = null;
+  } else {
+      tab.className = `tab active-${rp[0]}rp`;
+      map.addLayer(floodLayers[rp]);
+      if ( (astLayer !== null) && (map.hasLayer(astLayer))) { 
+        map.removeLayer(astLayer); // Bring AST layer to front 
+        map.addLayer(astLayer);
+      }
+  }
+  currentRP = rp;  
+  if (astLayer) {  updateCircles(); }
+}
+
+// Handle side-buttons for setting chart data type
+function setMode(event) {
+  mode = event.target.id.slice(4);  // All connected buttons have id of form "tab-{mode}"
+  if (mode === currentMode) {  return; }
+  currentMode = mode;
+  document.getElementById("tab-wave").className = "tab";
+  document.getElementById("tab-frag").className = "tab";
+  if (mode === "wave") {
+    document.getElementById("tab-wave").className = "tab active-wave";
+  } else {
+    document.getElementById("tab-frag").className = "tab active-frag";
+  }
+  Object.values(document.getElementById("charts-area").children).forEach(box => {
+    box.style.display="none";
+  });
+  document.getElementById("point-info").textContent = "No location selected yet.";
+  document.getElementById("status").textContent = "";
+  
+  if (currentCircle) { currentCircle.fire('click');}
+  if (astLayer) {  updateCircles(); }
+}
+
+// Update circle markers to highlight tanks within the selected flood extent 
+function updateCircles() {
+  astLayer.eachLayer((circle) => {   circle.setStyle(circleStyleDefault); });
+  if (currentRP) { 
+    astLayer.eachLayer((circle) => { 
+      (circle[currentRP.slice(1)] > 0) ? circle.bringToFront() : circle.setStyle(circleStyleUnflooded);
+    });
+  }
+  if (currentCircle) {   currentCircle.setStyle(circleStyleSelected); }
+}
+
+// Load tank data
+async function loadASTPoints() {
+  document.getElementById("status").textContent = "Loading AST locations...";
+  try {
+    const res  = await fetch("./data/tanks_withflood.json");
+    const data = await res.json();
+    
+    if (astLayer) {
+      astLayer.clearLayers();
+    } else {
+      astLayer = L.layerGroup().addTo(map);
+    }
+
+    Object.keys(data).forEach(ast_id => {
+      pt = data[ast_id]
+      const circle = L.circleMarker([pt.lat, pt.lon], circleStyleDefault).addTo(astLayer);
+      circle.addEventListener("click", clickCircle);
+      circle.ast_id   = ast_id
+      circle["25yr"]  = pt.flood25;
+      circle["50yr"]  = pt.flood50;
+      circle["100yr"] = pt.flood100;
+      
+      circle.bindTooltip(
+        `AST ${ast_id} | ${pt.type}`,
+        { permanent:false, direction:"top", offset:[0,-5] }
+      );
+    });
+    document.getElementById("status").textContent =
+      `${Object.keys(data).length} ASTs loaded. Click a circle to view charts.`;
+  } catch(e) {
+    document.getElementById("status").textContent =
+      `Failed to load ASTs: ${e.message}`;
+  }
+}
+
+// Toggle AST layer on and off
+async function toggleAST() {
+  if (astLayer === null)      { await loadASTPoints();     }
+  if (document.getElementById("show-tanks").checked) {
+    if (!(map.hasLayer(astLayer))) { 
+	    map.addLayer(astLayer); 
+    }
+  } else { 
+    if (  map.hasLayer(astLayer) ) { 
+	    map.removeLayer(astLayer); 
+  	    if (gridMarker) { gridMarker.remove(); gridMarker = null; }
+    }
+  }
+  updateCircles();
+}
+
+
+
+// Query flood at a particular gridpoint
+async function queryWaveSurge(lat, lon) {
+  const status = document.getElementById("status");
+  status.textContent = "Querying...";
+  try {
+    const res  = await fetch(
+      `${API}/query/wave_surge/point?lat=${lat}&lon=${lon}`
+    );
+    const data = await res.json();
+    updateSurgeCharts(data);
+    status.textContent = "Done. Click another location to update.";
+  
+  } catch(e) {
+    status.textContent = `Error: ${e.message}`;
+  }
+}
+
+// Query flood/wind/spill/fragility for a particular tank
+async function queryAST(ast_id) {
+  const status = document.getElementById("status");
+  status.textContent = "Loading AST data...";
+  //clearCharts();
+	
+  try {
+    const res  = await fetch(`${API}/fragility/ast/${ast_id}`);
+    const data = await res.json();
+    console.log("AST data:", JSON.stringify(data)); 
+    if (currentMode === "wave") {
+	    updateSurgeCharts({"values":data, "lat": data.lat, "lon": data.lon});
+    } else {
+      updateFragilityCharts(data);
+    }
+    document.getElementById("point-info").innerHTML =  
+          `<div class="ast-info">
+            <b>AST ID:</b> ${ast_id}<br>
+            <b>Type:</b> ${data.type}<br>
+            <b>Height:</b> ${data.height} m<br>
+            <b>Lat:</b> ${data.lat} &nbsp; <b>Lon:</b> ${data.lon}
+          </div>`;
+    status.textContent = `AST ${ast_id} — Click another tank to update.`;
+  } catch(e) {
+    status.textContent = `Error: ${e.message}`;
+  }
+}
+
+// Toggle and apply custom map extent
+function toggleRange() {
+  document.getElementById("range-inputs").style.display =
+    document.getElementById("custom-range").checked ? "block" : "none";
+}
+
+function applyRange() {
+  const latMin = parseFloat(document.getElementById("lat-min").value) || 29.3;
+  const latMax = parseFloat(document.getElementById("lat-max").value) || 30.1;
+  const lonMin = parseFloat(document.getElementById("lon-min").value) || -95.5;
+  const lonMax = parseFloat(document.getElementById("lon-max").value) || -94.5;
+  map.fitBounds([[latMin, lonMin],[latMax, lonMax]]);
+}
+
+
+// ── Wave Surge Bar Charts ─────────────────────────────────────
+function initCharts() {
+  const groups = [
+    {
+      chartID: 'flood',
+      labels: ['100-year', '50-year', '25-year'],
+      ylabel: 'meters',
+      colors: ["#0ea5e9","#0284c7","#0369a1"],
+      yMax: 4.0,
+    },
+    {
+      chartID: 'surge',
+      labels: ['100-year', '50-year', '25-year'],
+      ylabel: 'meters',
+      colors: ["#8b5cf6","#7c3aed","#6d28d9"],
+      yMax: 6.0,
+    },
+    {
+      chartID: 'wind',
+      labels: ['100-year', '50-year', '25-year'],
+      ylabel: 'meters/second',
+      colors: ["#1d4227","#417d51","#73d18c"],
+      yMax: 50.0,
+    },
+    {
+      chartID: 'pf',
+      labels:   ["Mean ± 1.5 STD"],
+      ylabel: 'probability (0 - 1)',
+      colors: ["#ef444488"],
+      yMax: 1.0,
+    },
+    {
+      chartID: 'sv',
+      labels:   ["Mean ± 1.5 STD"],
+      ylabel: 'cubic meters',
+      colors: ["#f9731688"],
+      yMax: 100.0,
+    },
+  ];
+  
+  groups.forEach(g => {
+    box = document.getElementById(`chartbox-${g.chartID}`);
+    chart = charts[g.chartID];
+    try {
+      charts[g.chartID] = new Chart(box.querySelector("canvas"), {
+        type: "bar",
+        data: {
+          labels: g.labels,
+          datasets: [{
+            data:            [],
+            backgroundColor: g.colors,
+            borderColor:     "black",
+            borderRadius:    5,
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: { display:false },
+            errorBar: {
+              qMean: 0,
+              qErr: 0,
+            }
+          },
+          scales: {
+            y: { min:0, max:g.yMax, title:{ display:true, text:g.ylabel } }
+          }
+        },
+        plugins: [myErrorBarPlugin]
+      });
+
+    } catch(e) {
+      console.log(`failed to load chart: ${e}`);
+    } 
+  });
+  charts['flood'].options.plugins.errorBar = false;
+  charts['surge'].options.plugins.errorBar = false;
+  charts['wind'].options.plugins.errorBar = false;
+}
+
+
+function updateSurgeCharts(data) { 
+  if ( !Object.keys(charts).includes('flood') ) {  initCharts(); }
+  const values = data.values;
+  
+  ['flood', 'surge', 'wind'].forEach(chartID => {
+    document.getElementById(`chartbox-${chartID}`).style.display = 'block';
+    chart = charts[chartID];
+    
+    const keys = ['100', '50', '25'].map(yr => chartID + yr);
+    const vals = keys.map(k => values[k]);
+    const displayVals = vals.map(v => v === null ? 0 : v);
+    const nullCount   = vals.filter(v => v === null).length;
+    chart.data.datasets.forEach(ds => {
+      ds.data = [];
+      displayVals.forEach(v => { ds.data.push(v); });
+      chart.options.plugins.tooltip.callbacks.label = ctx => {   
+          const orig = vals[ctx.dataIndex];
+          return orig === null ? "No data" : `${orig.toFixed(4)} m`;
+      };
+    });
+    chart.update();
+  });
+}
+
+
+//Mostly the same as above, except different charts and different vals
+function updateFragilityCharts(data) { 
+  if ( !Object.keys(charts).includes('pf') ) {  initCharts(); }
+  const STD = 1.5;
+  ['pf', 'sv'].forEach(chartID => {
+    document.getElementById(`chartbox-${chartID}`).style.display = 'block';
+    chart = charts[chartID];
+    qMean = data[chartID].mean;
+    qErr = data[chartID].std * STD;
+    displayVals = [qMean];
+    chart.data.datasets.forEach(ds => {
+      ds.data = [];
+      displayVals.forEach(v => { ds.data.push(v); });
+      chart.options.plugins.tooltip.callbacks.label = () => {
+              `Mean: ${qMean.toFixed(4)} | ±1.5σ: [${Math.max(0,qMean-qErr).toFixed(4)}, ${Math.min(1,qMean+qErr).toFixed(4)}]`;} ;
+      });
+    chart.options.plugins.errorBar.qMean=qMean;
+    chart.options.plugins.errorBar.qErr = qErr;
+    chart.update();
+  });
+}
+
+const myErrorBarPlugin = {
+  id: "errorBar",
+  afterDatasetsDraw: (chart, args, options) => {
+    console.log('plugin start');
+    const ctx  = chart.ctx;
+    const meta = chart.getDatasetMeta(0);
+    const bar  = meta.data[0];
+    const x    = bar.x;
+    qMean = chart.options.plugins.errorBar.qMean;
+    qErr = chart.options.plugins.errorBar.qErr;
+    const yTop    = chart.scales.y.getPixelForValue(qMean + qErr);
+    const yBottom = chart.scales.y.getPixelForValue(Math.max(0, qMean - qErr));
+    console.log(options.qErr);
+    ctx.save();
+    ctx.strokeStyle = "#c2410c";
+    ctx.lineWidth   = 2;
+
+    ctx.beginPath();
+    ctx.moveTo(x, yTop);
+    ctx.lineTo(x, yBottom);
+    ctx.stroke();
+
+    [-1, 1].forEach(dir => {
+      const y = dir === 1 ? yTop : yBottom;
+      ctx.beginPath();
+      ctx.moveTo(x - 8, y);
+      ctx.lineTo(x + 8, y);
+      ctx.stroke();
+      
+    });
+    ctx.restore();
+    console.log('plugin fin');
+  }
+};
+  
+</script>
+</body>
 </html>
