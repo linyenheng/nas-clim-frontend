@@ -46,6 +46,7 @@ h2 { color:#f8fafc; font-size:17px; letter-spacing:.5px; }
 .ctrl-btn.on-model  { background:#7c3aed; border-color:#7c3aed; }
 .ctrl-btn.on-period { background:#0369a1; border-color:#0369a1; }
 .ctrl-btn.on-tc     { background:#065f46; border-color:#059669; }
+.ctrl-btn.disabled  { opacity:0.3; cursor:not-allowed; pointer-events:none; }
 .ctrl-btn.on-cat    { background:#92400e; border-color:#f59e0b; }
 
 /* Info */
@@ -285,6 +286,20 @@ function setCtrl(type, val, btn) {
   if(type==="period") ctrlPeriod = val;
   if(type==="tc")     ctrlTc     = val;
   if(type==="cat")    ctrlCat    = val;
+
+  // When switching to 24-hr extreme: force All TCs, disable Minor/Major buttons
+  if(type === "cat" && val === "h95") {
+    ctrlTc = "all";
+    document.getElementById("tc-all").className   = "ctrl-btn on on-tc";
+    document.getElementById("tc-minor").className = "ctrl-btn disabled";
+    document.getElementById("tc-major").className = "ctrl-btn disabled";
+  }
+  // When switching back to mean: re-enable Minor/Major
+  if(type === "cat" && val === "mean") {
+    document.getElementById("tc-minor").className = "ctrl-btn";
+    document.getElementById("tc-major").className = "ctrl-btn";
+  }
+
   if(activeGateId) drawPrecipChart(activeGateId);
 }
 
