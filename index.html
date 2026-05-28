@@ -133,11 +133,12 @@ input[type=number] {
     <div class="section-title" style="margin-top:10px">Category</div>
     <div class="ctrl-group" id="cg-cat">
       <button class="ctrl-btn on on-cat" id="cat-mean" onclick="setCtrl('cat','mean',this)">TC Precip CCdelta</button>
-      <button class="ctrl-btn"           id="cat-h95"  onclick="setCtrl('cat','h95',this)">95th‑pct 24 hr Extreme</button>
+      <button class="ctrl-btn"           id="cat-h95"  onclick="setCtrl('cat','h95',this)">24-hr 95th Extreme</button>
     </div>
 
     <div class="hint" style="margin-top:8px">
-      <b>Click or hover</b> a gate on the map to view the chart below.
+      <b>Click or hover</b> a gate on the map to view the chart below.<br>
+      <i>Note: 24-hr 95th Extreme data available for <b>All TCs</b> only.</i>
     </div>
   </div>
 
@@ -337,22 +338,9 @@ function selectGate(gateId) {
   drawPrecipChart(gateId);
 }
 
-// ── Dummy data for 95th-pct 24 hr Extreme (placeholder until real data provided) ──
-const DUMMY_EXTREME = {
-  gate01:{ssp245:8.2,  ssp370:10.1, ssp585:13.4},
-  gate02:{ssp245:9.5,  ssp370:11.3, ssp585:15.2},
-  gate03:{ssp245:10.1, ssp370:12.4, ssp585:16.8},
-  gate04:{ssp245:9.8,  ssp370:12.0, ssp585:16.1},
-  gate05:{ssp245:11.2, ssp370:13.5, ssp585:18.3},
-  gate06:{ssp245:10.4, ssp370:12.8, ssp585:17.0},
-  gate07:{ssp245:9.1,  ssp370:11.0, ssp585:14.9},
-  gate08:{ssp245:8.7,  ssp370:10.5, ssp585:14.2},
-  gate09:{ssp245:11.5, ssp370:13.8, ssp585:18.7},
-  gate10:{ssp245:12.3, ssp370:15.1, ssp585:20.4},
-  gate11:{ssp245:13.7, ssp370:16.9, ssp585:22.8},
-  gate12:{ssp245:15.2, ssp370:18.7, ssp585:25.3},
-  gate13:{ssp245:16.8, ssp370:20.5, ssp585:27.9},
-};
+// ── 24-hr 95th-pct extreme data (all TCs only; no minor/major breakdown) ──
+const PRD_EXT = {"prD_ssp245_2030_2060_allgate_ccdelta_mean":[10.883439077697696,11.242586975036977,10.006475501084308,6.296518288057076,10.59139433401793,7.210841106785198,8.648737261625493,8.794201023054784,10.306199099533789,12.004597013755186,12.109837661188488,23.07129229060611,29.34694856615111],"prD_ssp245_2070_2100_allgate_ccdelta_mean":[17.72620500226865,16.595918350077447,16.753770677459542,11.34689490615175,9.666789736579295,7.6153811637758615,12.464683511152812,12.571334183576932,12.698333343602153,18.64026990344672,18.665882104275855,31.71528772532535,35.594502091497105],"prD_ssp370_2030_2060_allgate_ccdelta_mean":[12.648546502669252,14.107142377635665,10.900102273685748,8.358255284950427,8.552277299247454,4.513440679829794,8.540757457176978,9.185963584556823,10.859851098136888,11.665168126921309,10.585895295357327,19.608278570827927,27.95532807802227],"prD_ssp370_2070_2100_allgate_ccdelta_mean":[19.659201289722784,19.013328026399794,16.962392009593344,17.095325505235472,12.779846832963154,10.87982969137338,14.175673640922719,14.74740398817664,15.49046783438044,20.495852943732714,21.25633012279782,30.499683168324758,40.01269502331101],"prD_ssp585_2030_2060_allgate_ccdelta_mean":[11.974330765338705,13.487809542287733,9.276487957448941,6.737004580674252,7.850978972208867,5.895091723870644,11.788053100414977,11.900442960639044,12.099063058039814,12.300044331131952,16.06082683595781,25.9607278319727,27.377784556191152],"prD_ssp585_2070_2100_allgate_ccdelta_mean":[25.86166924395336,26.83219570743783,26.088887831988803,22.428175810499564,20.159702950950667,16.400570023834042,20.45465636038194,23.587018391630295,26.405817876502287,29.524976737849475,30.44691286465576,46.63344918613816,55.57742224869491],"prD_ssp245_2030_2060_allgate_ccdelta_H95":[3.884152137224139,3.6626946466843098,3.959906962814683,4.149802772085009,5.121602422493473,4.117390960422865,3.3748169620085866,3.005072998168862,3.416325962117431,3.996309783289967,5.0648193846796215,7.891634965586358,8.928442035364574],"prD_ssp245_2070_2100_allgate_ccdelta_H95":[3.908722440931457,3.743720841906479,4.475407154213817,4.720353973618563,4.634205226941047,3.7249512877100943,3.243380341706072,3.194345853822865,3.5104084481197937,4.6072246859335175,5.476857742466461,11.171243752038741,9.818634411063924],"prD_ssp370_2030_2060_allgate_ccdelta_H95":[3.4308052844393195,3.7899360647078852,5.2664825866171165,4.779395372775496,4.73993120444911,3.7001596192935975,3.12400747525244,2.8782808025004205,3.7101421736482516,4.87517279923271,4.692255655023495,8.767668190443336,10.631256931669597],"prD_ssp370_2070_2100_allgate_ccdelta_H95":[4.06676797498446,3.9394384694683193,5.011887930537854,5.077855102955789,4.425120592231819,4.1510888141309135,3.09056590442461,3.345587861374347,4.321212104493738,5.026717664974369,6.1169784684556765,9.014792724351254,9.810016816624167],"prD_ssp585_2030_2060_allgate_ccdelta_H95":[3.7295611219508706,3.490915951008014,4.60104478735935,4.042254262825664,4.538263488121269,4.0920783317277545,3.3272019414423446,3.0202199700240344,4.106609801108953,4.2730098527867275,5.45285971646679,8.711895448816579,10.087551216572844],"prD_ssp585_2070_2100_allgate_ccdelta_H95":[4.764968204769164,4.898190917022473,5.288605912828028,4.714730563062352,5.968194455203304,4.218535316486761,3.71085972948747,4.410255700909707,5.121823045719047,5.6075025411378245,5.965479665380417,9.907590009923837,12.428774393784671]};
+const PRS_EXT = {"prS_ssp245_2030_2060_allgate_ccdelta_mean":[2.5378922722243895,2.9338179833285105,2.044937711556286,1.1067267817155022,3.521740328250805,2.2445117845007756,1.846512809824074,1.4792904830764622,4.030094561379902,3.4482393404697627,5.564145135388832,11.628250189344628,12.490554401943449],"prS_ssp245_2070_2100_allgate_ccdelta_mean":[3.765524573536977,3.6485656472887262,4.002454442935654,2.0540526098812912,0.44851581423760295,0.22316396553268034,1.740766408444871,2.303199068865206,2.8143012425128253,6.5738958951449264,7.525490907444006,15.24889402344011,14.057132067950988],"prS_ssp370_2030_2060_allgate_ccdelta_mean":[4.4553633945774305,4.038765693365331,2.7512358104279895,2.179009641775679,0.8510320351324704,0.7431450622852597,0.9743944091461767,1.6808072687864268,2.4779064863729214,2.9872531803169786,3.665801250991424,8.56653114824602,11.932044151087366],"prS_ssp370_2070_2100_allgate_ccdelta_mean":[4.33403495581637,2.800160111772054,0.8590573046030121,2.056805445726106,-0.6236581994520697,-0.5794708061503201,-0.9470238182767945,0.6553184093160006,2.694645118461113,4.578353093116346,7.1346997842820095,13.359410854548893,17.655296040428155],"prS_ssp585_2030_2060_allgate_ccdelta_mean":[3.1063382067583207,2.929216743211559,1.023301064307962,0.7647508361386858,0.7188982461484178,1.321736987973071,3.839960890557047,3.3937279881075484,3.994882811853956,4.000893058976497,7.06595418004368,12.554140307373745,13.285263640779984],"prS_ssp585_2070_2100_allgate_ccdelta_mean":[5.7691867616105075,6.077850628821581,5.865561380875352,4.687353251401177,2.234855453901017,2.0338900091822945,1.6110611128566925,3.283082476239742,7.19810647788197,7.893846273918229,11.560854747452472,20.500380523833876,22.99277003629551],"prS_ssp245_2030_2060_allgate_ccdelta_H95":[2.4729336491535525,2.4761423994712355,2.784541773337066,2.803180342637541,3.1366928383332864,2.651578008746072,2.4966584192081878,2.2874806964790193,2.718154797167313,3.0170731441640375,3.3419998516988194,6.071884625925958,4.777285165771326],"prS_ssp245_2070_2100_allgate_ccdelta_H95":[2.382188242764484,2.2419188002406965,2.891470796035435,3.0888745799303003,2.7265391569712714,2.1956748717741865,2.4140381337046994,2.184263632410584,2.59962203716796,3.531747626221882,3.129211811500435,7.830274743663513,5.67027334625322],"prS_ssp370_2030_2060_allgate_ccdelta_H95":[2.5148533100552526,2.3400994917513542,3.662398265238524,2.8959988736125206,2.7069990649576026,2.1235619895320417,2.2316841527436315,2.1072365210220543,2.636035719416762,3.447150368609267,3.0836962858254053,6.386656677025818,5.684749521292992],"prS_ssp370_2070_2100_allgate_ccdelta_H95":[2.6187856316898643,2.5147708633667443,3.083279566832893,2.942354534772427,2.6914204311726717,2.496607259776471,2.1040360725132277,2.0899590199834064,3.1256182401221615,3.6692626209487074,3.693874349172066,6.588481974127726,5.669795292238814],"prS_ssp585_2030_2060_allgate_ccdelta_H95":[2.4966839130695995,2.286969518879448,3.0233674830356936,2.489982191249818,2.8714120141005615,2.4653704399614815,2.3680548845784144,2.203046941588424,2.8706573309476773,3.491754317771735,3.439114136631941,6.998603533409993,6.4261893002220125],"prS_ssp585_2070_2100_allgate_ccdelta_H95":[2.698635238677083,2.7152376402807974,3.0829351444762723,2.9780371078535346,3.0715359697902422,2.257268219525131,2.301239676847228,2.6526633712427516,3.01913285775702,3.457434006183548,3.50151916144015,7.240224702718811,6.45610963853366]};
 
 // ── Main chart renderer ───────────────────────────────────────────────────
 function drawPrecipChart(gateId) {
@@ -447,42 +435,86 @@ function drawPrecipChart(gateId) {
     }));
 
   } else {
-    // ── Category 2: 95th-pct 24 hr Extreme — dummy data ──────────────────
-    const vals   = SSPS.map(ssp => DUMMY_EXTREME[gateId]?.[ssp] ?? 10);
-    const colors = SSPS.map(ssp => SSP_COLORS[ssp]);
-    const labels = SSPS.map(ssp => SSP_LABELS[ssp]);
-    const yMax   = Math.max(...vals) * 1.3;
+    // ── Category 2: 24-hour 95th Extreme — real data (all TCs only) ──────
+    const extSrc  = ctrlModel === "dynamic" ? PRD_EXT : PRS_EXT;
+    const extPfx  = ctrlModel === "dynamic" ? "prD" : "prS";
+    const means2 = [], errs2 = [], colors2 = [], labels2 = [];
 
-    const box = document.createElement("div");
-    box.className = "chart-box";
-    box.innerHTML = `
-      <h4>⚠️ TC Pr-95 24 hr Extreme CCdelta <span style="font-size:10px;color:#f59e0b">[DUMMY DATA]</span></h4>
-      <small>${GATE_NAMES[gateId]} &nbsp;|&nbsp; ${modelLabel} &nbsp;|&nbsp; ${periodLabel} &nbsp;|&nbsp; ${tcLabel}</small>
-      <canvas id="precip-canvas-h95"></canvas>`;
-    area.appendChild(box);
+    SSPS.forEach(ssp => {
+      const meanKey = `${extPfx}_${ssp}_${ctrlPeriod}_allgate_ccdelta_mean`;
+      const errKey  = `${extPfx}_${ssp}_${ctrlPeriod}_allgate_ccdelta_H95`;
+      const mean = extSrc[meanKey] ? extSrc[meanKey][gateIdx] : 0;
+      const err  = extSrc[errKey]  ? extSrc[errKey][gateIdx]  : 0;
+      means2.push(mean);
+      errs2.push(err);
+      colors2.push(SSP_COLORS[ssp]);
+      labels2.push(SSP_LABELS[ssp]);
+    });
 
-    charts.push(new Chart(document.getElementById("precip-canvas-h95"), {
+    const yTop2 = Math.max(...means2.map((m,i) => m + errs2[i]));
+    const yBot2 = Math.min(0, Math.min(...means2.map((m,i) => m - errs2[i])));
+    const yMax2 = yTop2 * 1.2 || 10;
+    const yMin2 = yBot2 < 0 ? yBot2 * 1.2 : 0;
+
+    const box2 = document.createElement("div");
+    box2.className = "chart-box";
+    box2.innerHTML = `
+      <h4>🌧 24-hour 95th Extreme CCdelta (mean and significant range)</h4>
+      <small>${GATE_NAMES[gateId]} &nbsp;|&nbsp; ${modelLabel} &nbsp;|&nbsp; ${periodLabel} &nbsp;|&nbsp; All TCs only</small>
+      <canvas id="precip-canvas-ext"></canvas>`;
+    area.appendChild(box2);
+
+    const errPlugin2 = {
+      id:"errPlugin2",
+      afterDatasetsDraw(chart) {
+        const ctx = chart.ctx;
+        const meta = chart.getDatasetMeta(0);
+        ctx.save(); ctx.lineWidth = 2.5;
+        meta.data.forEach((bar, i) => {
+          const err = errs2[i]; if(!err) return;
+          const x  = bar.x;
+          const yT = chart.scales.y.getPixelForValue(means2[i] + err);
+          const yB = chart.scales.y.getPixelForValue(means2[i] - err);
+          ctx.strokeStyle = colors2[i];
+          ctx.beginPath(); ctx.moveTo(x, yT); ctx.lineTo(x, yB); ctx.stroke();
+          [yT, yB].forEach(y => {
+            ctx.beginPath(); ctx.moveTo(x-8, y); ctx.lineTo(x+8, y); ctx.stroke();
+          });
+        });
+        ctx.restore();
+      }
+    };
+
+    charts.push(new Chart(document.getElementById("precip-canvas-ext"), {
       type:"bar",
-      data:{ labels, datasets:[{
-        data: vals,
-        backgroundColor: colors.map(c => c + "99"),
-        borderColor: colors, borderWidth: 2, borderRadius: 5,
+      data:{ labels: labels2, datasets:[{
+        data: means2,
+        backgroundColor: colors2.map(c => c + "99"),
+        borderColor: colors2, borderWidth: 2, borderRadius: 5,
       }]},
       options:{
         responsive:true,
         plugins:{
           legend:{display:false},
-          tooltip:{ callbacks:{ label: ctx => `${ctx.parsed.y.toFixed(2)}% (placeholder)` }}
+          tooltip:{ callbacks:{ label: ctx => {
+            const m = means2[ctx.dataIndex], e = errs2[ctx.dataIndex];
+            return [`Mean: ${m.toFixed(2)}%`, `Range: [${(m-e).toFixed(2)}%, ${(m+e).toFixed(2)}%]`];
+          }}}
         },
         scales:{
-          y:{ min:0, max:yMax,
+          y:{
+            min: yMin2, max: yMax2,
             title:{display:true, text:"CCdelta (%)"},
-            grid:{color:"#e5e7eb"},
+            grid:{
+              color: ctx => ctx.tick.value === 0 ? "#374151" : "#e5e7eb",
+              lineWidth: ctx => ctx.tick.value === 0 ? 2.5 : 1,
+            },
             ticks:{callback: v => v.toFixed(0)+"%"}
           },
           x:{ grid:{display:false} }
         }
-      }
+      },
+      plugins:[errPlugin2]
     }));
   }
 
@@ -495,9 +527,9 @@ function drawPrecipChart(gateId) {
       <span style="color:#38bdf8">■</span> SSP2-4.5 &nbsp;
       <span style="color:#fb923c">■</span> SSP3-7.0 &nbsp;
       <span style="color:#f87171">■</span> SSP5-8.5<br>
-      ${ctrlCat==="mean"
-        ? "<b>Error bars</b> = significant range (mean ± H95)<br><b>CCdelta</b> = climate change delta vs baseline (%)"
-        : "<b>Note:</b> Dummy placeholder — real data not yet provided"}
+      <b>Error bars</b> = significant range (mean ± H95)<br>
+      <b>CCdelta</b> = % change vs historical (1985–2014)<br>
+      ${ctrlCat==="h95" ? "<i>24-hr extreme: All TCs only (no minor/major split)</i>" : ""}
     </small>`;
   area.appendChild(legendBox);
 }
