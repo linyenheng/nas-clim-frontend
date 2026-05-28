@@ -46,7 +46,7 @@
     <div class="tab-group">
       <button class="tab disabled" id="tab-s25yr"> 25-year </button>
       <button class="tab disabled" id="tab-s50yr"> 50-year </button>
-      <button class="tab disabled" id="tab-s100yr"> 100-year </button>
+      <button class="tab year" id="tab-s100yr"> 100-year </button>
     </div>
   </div>
   <div class="check-row">                                          
@@ -148,8 +148,8 @@ const API = "https://nas-clim-api-ih6l.onrender.com";
 let currentMode = "wave";
 let currentRP   =  null;
 let currentCircle= null; 
-let currentScrollPos = 0;
-let gridMarker      = null;
+let id2circles  = {};
+let gridMarker  = null;
 let charts      = {};
 let floodLayers = {};
 let astLayer    = null;
@@ -212,6 +212,8 @@ floodLayers = {
   {opacity: 0.8, attribution: '(c) Mappinest'}),
   'f100yr': L.tileLayer("https://api.mappinest.com/v1/tiles/sustielz.100yrflood/{z}/{x}/{y}.png?key=df10599d-b326-494d-ab3f-bab6b231c3c0", 
   {opacity: 0.8, attribution: '(c) Mappinest'}), 
+  's100yr': L.tileLayer("https://api.mappinest.com/v1/tiles/sustielz.s100_mean/{z}/{x}/{y}.png?key=df10599d-b326-494d-ab3f-bab6b231c3c0", 
+  {opacity: 0.8, attribution: '(c) Mappinest'}), 
 }
 
 
@@ -234,7 +236,6 @@ document.getElementById("tab-frag"         ).addEventListener("click",  setMode)
 
 // Handle map clicks (not tank clicks)
 function clickMap(event) {
-  if (currentMode === 'frag') { return;}
   if (currentCircle) { currentCircle.setStyle(circleStyleDefault); }
   currentCircle = null;
   lat = parseFloat(event.latlng.lat.toFixed(4));
@@ -321,6 +322,15 @@ function updateCircles() {
   if (currentCircle) {   currentCircle.setStyle(circleStyleSelected); }
 }
 
+function highlightCircles(data) {
+  updateCircles();
+  console.log(data);
+  data['ids'].forEach(id => {
+    id2circles[id].setStyle(circleStyleSelected);
+    id2circles[id].bringToFront();
+  });
+}
+
 // Load tank data
 async function loadASTPoints() {
   document.getElementById("status").textContent = "Loading AST locations...";
@@ -342,7 +352,7 @@ async function loadASTPoints() {
       circle["25yr"]  = pt.flood25;
       circle["50yr"]  = pt.flood50;
       circle["100yr"] = pt.flood100;
-      
+      id2circles[ast_id] = circle;
       circle.bindTooltip(
         `AST ${ast_id} | ${pt.type}`,
         { permanent:false, direction:"top", offset:[0,-5] }
@@ -379,11 +389,15 @@ async function queryWaveSurge(lat, lon) {
   const status = document.getElementById("status");
   status.textContent = "Querying...";
   try {
-    const res  = await fetch(
-      `${API}/query/wave_surge/point?lat=${lat}&lon=${lon}`
-    );
-    const data = await res.json();
-    updateSurgeCharts(data);
+    if (currentMode === 'wave') {
+      const res  = await fetch(`${API}/query/wave_surge/point?lat=${lat}&lon=${lon}`);
+      const data = await res.json();
+      updateSurgeCharts(data);
+    } else {
+      const res  = await fetch(`${API}/query/s100yr/whichtanks?lat=${lat}&lon=${lon}`);
+      const data = await res.json();
+      highlightCircles(data);
+    } 
     status.textContent = "Done. Click another location to update.";
   
   } catch(e) {
