@@ -221,7 +221,6 @@ function updateCircles() {
 
 function highlightCircles(data) {
   updateCircles();
-  console.log(data);
   data['ids'].forEach(id => {
     id2circles[id].setStyle(circleStyleSelected);
     id2circles[id].bringToFront();
@@ -280,15 +279,10 @@ async function toggleAST() {
 async function queryWaveSurge(lat, lon) {
   const status = document.getElementById("status");
   status.textContent = "Querying...";
-  console.log('query start');
   try {
-    console.log(currentMode);
     if (currentMode === 'wave') {
       const res  = await fetch(`${API}/query/wave_surge/point?lat=${lat}&lon=${lon}`);
-      console.log(res);
       const data = await res.json();
-      console.log("surge query");
-      console.log(data);
       updateSurgeCharts(data);
     } else {
       const res  = await fetch(`${API}/query/s100yr/whichtanks?lat=${lat}&lon=${lon}`);

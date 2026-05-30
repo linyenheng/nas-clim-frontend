@@ -11,10 +11,7 @@ let GATE_NAMES = null;
 
 async function init() {
   let res = await fetch('./pr.json');
-  console.log(res);
   PR = await res.json();
-  console.log("PR on init:");
-  console.log(PR);
   let res2 = await fetch('./gates.json');   // We're loading this a second time... should consider an api module
   res2 = await res2.json();
   GATE_NAMES = res2.NAMES;
@@ -180,9 +177,6 @@ const myErrorBarPlugin = {
 // ── Main chart renderer ───────────────────────────────────────────────────
 export function drawPrecipChart(gateId, ctrl) {
   clearRainCharts();
-  console.log('draw prec');
-  console.log(PR);
-  console.log(ctrl);
   const area = document.getElementById("rain-charts-area");
   const gateIdx = parseInt(gateId.replace("gate","")) - 1;
   const src     = ctrl.Model === "dynamic" ? PR.PRD : PR.PRS;
@@ -241,7 +235,6 @@ export function drawPrecipChart(gateId, ctrl) {
         ctx.restore();
       }
     };
-    console.log(means);
     rainCharts.push(new Chart(document.getElementById("precip-canvas"), {
       type:"bar",
       data:{ labels, datasets:[{
