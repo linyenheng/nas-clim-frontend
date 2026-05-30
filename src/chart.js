@@ -10,12 +10,12 @@ let GATE_NAMES = null;
 
 
 async function init() {
-  let res = await fetch('../pr.json');
+  let res = await fetch('./pr.json');
   console.log(res);
   PR = await res.json();
   console.log("PR on init:");
   console.log(PR);
-  let res2 = await fetch('../gates.json');   // We're loading this a second time... should consider an api module
+  let res2 = await fetch('./gates.json');   // We're loading this a second time... should consider an api module
   res2 = await res2.json();
   GATE_NAMES = res2.NAMES;
   const groups = [
