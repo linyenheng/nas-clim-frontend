@@ -284,6 +284,8 @@ async function queryWaveSurge(lat, lon) {
     if (currentMode === 'wave') {
       const res  = await fetch(`${API}/query/wave_surge/point?lat=${lat}&lon=${lon}`);
       const data = await res.json();
+      console.log("surge query");
+      console.log(data);
       updateSurgeCharts(data);
     } else {
       const res  = await fetch(`${API}/query/s100yr/whichtanks?lat=${lat}&lon=${lon}`);
