@@ -221,7 +221,6 @@ function updateCircles() {
 
 function highlightCircles(data) {
   updateCircles();
-  console.log(data);
   data['ids'].forEach(id => {
     id2circles[id].setStyle(circleStyleSelected);
     id2circles[id].bringToFront();
