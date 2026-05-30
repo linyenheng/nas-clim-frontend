@@ -1,22 +1,6 @@
-import {Chart, 
-  BarController,
-  BarElement,
-  CategoryScale,
-  LinearScale,
-  Tooltip
-} from "https://cdn.jsdelivr.net/npm/chart.js/+esm"
-
-Chart.register(
-  BarController,
-  BarElement,
-  CategoryScale,
-  LinearScale,
-  Tooltip
- );
- 
- let charts      = {};
- let rainCharts = [];
- let PR = null;
+let charts      = {};
+let rainCharts = [];
+let PR = null;
 
 const SSPS = ["ssp245","ssp370","ssp585"];
 const SSP_COLORS = {ssp245:"#38bdf8", ssp370:"#fb923c", ssp585:"#f87171"};
@@ -27,7 +11,10 @@ let GATE_NAMES = null;
 
 async function init() {
   let res = await fetch('../pr.json');
+  console.log(res);
   PR = await res.json();
+  console.log("PR on init:");
+  console.log(PR);
   let res2 = await fetch('../gates.json');   // We're loading this a second time... should consider an api module
   res2 = await res2.json();
   GATE_NAMES = res2.NAMES;
